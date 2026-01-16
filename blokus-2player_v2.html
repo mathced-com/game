@@ -161,17 +161,18 @@
             margin-left: 10px;
         }
 
+        /* --- 修改後的規則按鈕樣式 (文字版) --- */
         .rules-btn {
             position: absolute;
             top: 20px;
             right: 20px;
-            width: 40px;
-            height: 40px;
+            /* 移除固定的 width/height，改用 padding */
+            padding: 8px 20px;
             background: #34495e;
             color: white;
             border: none;
-            border-radius: 50%;
-            font-size: 20px;
+            border-radius: 30px; /* 膠囊形狀 */
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -179,9 +180,32 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s;
+            transition: transform 0.2s, background 0.2s;
         }
-        .rules-btn:hover { transform: scale(1.1); background: #2c3e50; }
+        .rules-btn:hover { transform: scale(1.05); background: #2c3e50; }
+
+        /* 設定視窗內的規則小按鈕 */
+        .setup-rules-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            color: #7f8c8d;
+            border: 1px solid #bdc3c7;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .setup-rules-btn:hover {
+            background: #f0f2f5;
+            color: #2c3e50;
+            border-color: #95a5a6;
+        }
 
         canvas#mainCanvas {
             background-color: white;
@@ -191,7 +215,6 @@
             max-height: 85vh; 
         }
 
-        /* --- 預覽與彈窗 --- */
         #preview-overlay {
             position: absolute;
             width: 150px;
@@ -279,6 +302,7 @@
             padding: 30px; border-radius: 15px;
             text-align: center; max-width: 90%; width: 450px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative; /* 為了讓內部的絕對定位按鈕參考此框 */
         }
         
         /* Setup Modal Styles */
@@ -324,7 +348,14 @@
             .side-panel-header { font-size: 0.9rem; padding: 5px; flex-direction: row; justify-content: space-between; align-items: center; }
             .timer-display { font-size: 1rem; }
 
-            .rules-btn { top: 10px; right: 10px; width: 32px; height: 32px; font-size: 16px; }
+            /* 手機版按鈕調整，取消原本強制 32px 的設定，改為適應文字 */
+            .rules-btn { 
+                top: 10px; 
+                right: 10px; 
+                padding: 5px 12px; 
+                font-size: 0.9rem;
+            }
+
             .tray-grid { 
                 display: flex; flex-direction: row; overflow-x: auto; 
                 grid-template-columns: none; white-space: nowrap; align-items: center;
@@ -356,7 +387,7 @@
             <button class="global-pass-btn" onclick="game.manualPass()" title="放棄回合">🏳️</button>
         </div>
 
-        <button class="rules-btn" onclick="document.getElementById('rules-modal').classList.add('show')">❔</button>
+        <button class="rules-btn" onclick="document.getElementById('rules-modal').classList.add('show')">📖 遊戲說明</button>
 
         <canvas id="mainCanvas"></canvas>
         
@@ -374,6 +405,8 @@
 
         <div id="setup-modal" class="modal-overlay show">
             <div class="result-box">
+                <button class="setup-rules-btn" onclick="document.getElementById('rules-modal').classList.add('show')">📖 規則說明</button>
+                
                 <div class="rules-title">⚙️ 遊戲設定</div>
                 
                 <div class="setup-group">
