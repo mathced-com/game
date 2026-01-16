@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>格格不入 Blokus Duo (競技計時版)</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --p1-color: #8e44ad;
+            --p2-color: #e67e22;
+            --grid-line: #ccc;
+            --panel-bg: #fff;
+            --timer-warn: #e74c3c;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: "Microsoft JhengHei", sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #app-layout {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .side-panel {
+            width: 20%;
+            min-width: 120px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+            border-left: 1px solid #ddd;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 5;
+        }
+
+        .side-panel-header {
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .timer-display {
+            font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 1.2rem;
+        }
+        .timer-display.low-time {
+            background: var(--timer-warn);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        #p1-panel .side-panel-header { background: var(--p1-color); }
+        #p2-panel .side-panel-header { background: var(--p2-color); }
+
+        .tray-grid {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
+            gap: 8px;
+            align-content: center;
+        }
+
+        .side-panel.active { opacity: 1; box-shadow: inset 0 0 20px rgba(0,0,0,0.05); }
+        .side-panel.inactive { opacity: 0.3; pointer-events: none; filter: grayscale(0.6); }
+
+        .piece-item {
+            aspect-ratio: 1;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s;
+            background: #fafafa;
+        }
+        
+        .piece-item:hover { transform: scale(1.05); border-color: #ccc; }
+        .piece-item.selected {
+            background-color: #eee;
+            border-color: #333;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .piece-item canvas {
+            width: 90% !important;
+            height: 90% !important;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        #center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 10px;
+            background: #eef2f3;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 0;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #444;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 20px;
+            border-radius: 20px;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .global-pass-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+        }
+
+        .rules-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: #34495e;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        .rules-btn:hover { transform: scale(1.1); background: #2c3e50; }
+
+        canvas#mainCanvas {
+            background-color: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            max-width: 98%;
+            max-height: 85vh; 
+        }
+
+        /* --- 預覽與彈窗 --- */
+        #preview-overlay {
+            position: absolute;
+            width: 150px;
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            pointer-events: auto; 
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            top: 50%; 
+            transform: translateY(-50%) scale(0.8); 
+            z-index: 100;
+            visibility: hidden;
+            touch-action: none;
+        }
+
+        #preview-overlay.show { opacity: 1; transform: translateY(-50%) scale(1); visibility: visible; }
+        #preview-overlay.dragging {
+            transition: none !important; 
+            pointer-events: none;       
+            opacity: 0.4; 
+            transform: translate(-50%, -50%) scale(1) !important;
+            border-color: rgba(255,255,255,0.4); 
+        }
+        #preview-overlay.dragging .overlay-controls, #preview-overlay.dragging #preview-title { display: none; }
+        #preview-overlay.p1-pos { left: 20px; }
+        #preview-overlay.p2-pos { right: 20px; left: auto; }
+        
+        .overlay-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .overlay-btn {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 6px;
+            padding: 8px 0;
+            flex: 1;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            color: #333;
+        }
+        .overlay-btn:hover { background: rgba(255, 255, 255, 0.9); }
+        .btn-pass { background: rgba(255, 220, 220, 0.5); color: #c0392b; border-color: rgba(231, 76, 60, 0.5); flex: 0.6; }
+        
+        #preview-title {
+            font-size: 12px; color: #333; margin-bottom: 5px; font-weight: bold;
+            text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+        }
+
+        #msg-overlay {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85); color: white;
+            padding: 20px 40px; border-radius: 10px;
+            font-size: 1.8rem; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s;
+            z-index: 200; text-align: center; white-space: nowrap;
+        }
+
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 300; color: white;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: auto; }
+        
+        .result-box {
+            background: white; color: #333;
+            padding: 30px; border-radius: 15px;
+            text-align: center; max-width: 90%; width: 450px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        /* Setup Modal Styles */
+        .setup-group { margin-bottom: 20px; text-align: left; }
+        .setup-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #2c3e50; }
+        .setup-options { display: flex; gap: 10px; flex-wrap: wrap; }
+        .setup-btn {
+            padding: 8px 16px; border: 2px solid #bdc3c7; background: #fff;
+            border-radius: 20px; cursor: pointer; color: #7f8c8d;
+            font-weight: bold; transition: all 0.2s;
+        }
+        .setup-btn.active { border-color: #3498db; background: #3498db; color: white; }
+        .start-game-btn {
+            background: #2ecc71; color: white; border: none;
+            padding: 12px 40px; font-size: 1.2rem; border-radius: 8px;
+            cursor: pointer; margin-top: 10px; width: 100%;
+        }
+        .start-game-btn:hover { background: #27ae60; }
+        .hidden { display: none; }
+
+        .winner-text { font-size: 2rem; font-weight: bold; margin-bottom: 10px; }
+        .score-detail { font-size: 1.2rem; color: #666; margin-bottom: 20px; }
+        .restart-btn {
+            background: #3498db; color: white; border: none;
+            padding: 10px 30px; font-size: 1.2rem; border-radius: 8px;
+            cursor: pointer; margin-top: 10px;
+        }
+        
+        .rules-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; color: #2c3e50; }
+        .rules-list { text-align: left; margin-bottom: 20px; font-size: 1rem; line-height: 1.6; color: #555; }
+        .rules-close-btn {
+            background: #95a5a6; color: white; border: none;
+            padding: 8px 24px; font-size: 1rem; border-radius: 6px; cursor: pointer;
+        }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+            #app-layout { flex-direction: column; }
+            .side-panel { width: 100%; height: 15%; flex-direction: row; min-width: auto; border: none; }
+            #p1-panel { order: 3; border-top: 1px solid #ddd; }
+            #p2-panel { order: 1; border-bottom: 1px solid #ddd; }
+            #center-panel { order: 2; height: 70%; padding: 5px; }
+            
+            .side-panel-header { font-size: 0.9rem; padding: 5px; flex-direction: row; justify-content: space-between; align-items: center; }
+            .timer-display { font-size: 1rem; }
+
+            .rules-btn { top: 10px; right: 10px; width: 32px; height: 32px; font-size: 16px; }
+            .tray-grid { 
+                display: flex; flex-direction: row; overflow-x: auto; 
+                grid-template-columns: none; white-space: nowrap; align-items: center;
+            }
+            .piece-item { min-width: 50px; height: 50px; }
+            #preview-overlay.p1-pos, #preview-overlay.p2-pos { 
+                top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8); width: 180px; 
+            }
+            #preview-overlay.show { transform: translate(-50%, -50%) scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-layout">
+    <div id="p1-panel" class="side-panel active">
+        <div class="side-panel-header">
+            <span>P1 (紫)</span>
+            <div id="timer-p1" class="timer-display">--:--</div>
+        </div>
+        <div id="tray-p1" class="tray-grid"></div>
+    </div>
+
+    <div id="center-panel">
+        <div class="game-info">
+            <span style="color:var(--p1-color)">P1: <span id="s1">89</span></span>
+            <span>|</span>
+            <span style="color:var(--p2-color)">P2: <span id="s2">89</span></span>
+            <button class="global-pass-btn" onclick="game.manualPass()" title="放棄回合">🏳️</button>
+        </div>
+
+        <button class="rules-btn" onclick="document.getElementById('rules-modal').classList.add('show')">❔</button>
+
+        <canvas id="mainCanvas"></canvas>
+        
+        <div id="preview-overlay">
+            <div id="preview-title">當前選擇</div>
+            <canvas id="previewCanvas"></canvas>
+            <div class="overlay-controls">
+                <button class="overlay-btn" onclick="game.rotateSelected()">🔄</button>
+                <button class="overlay-btn" onclick="game.flipSelected()">↔️</button>
+                <button class="overlay-btn btn-pass" onclick="game.manualPass()" title="放棄回合">🏳️</button>
+            </div>
+        </div>
+
+        <div id="msg-overlay">準備開始</div>
+
+        <div id="setup-modal" class="modal-overlay show">
+            <div class="result-box">
+                <div class="rules-title">⚙️ 遊戲設定</div>
+                
+                <div class="setup-group">
+                    <label>時間模式</label>
+                    <div class="setup-options" id="mode-options">
+                        <button class="setup-btn active" onclick="setup.setMode('none')">無限制</button>
+                        <button class="setup-btn" onclick="setup.setMode('turn')">單回合</button>
+                        <button class="setup-btn" onclick="setup.setMode('total')">局總時間</button>
+                    </div>
+                </div>
+
+                <div class="setup-group hidden" id="time-group">
+                    <label>時間長度</label>
+                    <div class="setup-options" id="time-options">
+                        </div>
+                </div>
+
+                <button class="start-game-btn" onclick="setup.startGame()">開始對戰</button>
+            </div>
+        </div>
+
+        <div id="rules-modal" class="modal-overlay" onclick="if(event.target === this) this.classList.remove('show')">
+            <div class="result-box">
+                <div class="rules-title">📜 遊戲規則說明</div>
+                <ul class="rules-list">
+                    <li><strong>1. 起始佈局：</strong>第一步必須覆蓋標記點。</li>
+                    <li><strong>2. 角對角 (關鍵)：</strong>必須與自己顏色的舊棋子「角對角」相連。</li>
+                    <li><strong>3. 邊斥規則：</strong>自己的棋子絕對「不能邊對邊」。</li>
+                    <li><strong>4. 獲勝條件：</strong>當雙方都無法出牌時，剩餘格數少者獲勝！</li>
+                    <li id="rule-timer" style="color:#c0392b; margin-top:10px;"></li>
+                </ul>
+                <button class="rules-close-btn" onclick="document.getElementById('rules-modal').classList.remove('show')">我知道了</button>
+            </div>
+        </div>
+
+        <div id="game-over-modal" class="modal-overlay">
+            <div class="result-box">
+                <div class="winner-text" id="winner-msg">遊戲結束</div>
+                <div class="score-detail" id="final-score">P1: 0 | P2: 0</div>
+                <div id="timeout-msg" style="color:#e74c3c; margin-bottom:10px; font-weight:bold;"></div>
+                <button class="restart-btn" onclick="location.reload()">再來一局</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="p2-panel" class="side-panel inactive">
+        <div class="side-panel-header">
+            <span>P2 (橘)</span>
+            <div id="timer-p2" class="timer-display">--:--</div>
+        </div>
+        <div id="tray-p2" class="tray-grid"></div>
+    </div>
+</div>
+
+<script>
+const SHAPES = [
+    [[0,0]], 
+    [[0,0],[0,1]], 
+    [[0,0],[0,1],[0,2]], 
+    [[0,0],[0,1],[1,0]], 
+    [[0,0],[0,1],[0,2],[0,3]], 
+    [[0,0],[0,1],[1,0],[1,1]], 
+    [[0,0],[0,1],[0,2],[1,1]], 
+    [[0,0],[0,1],[0,2],[1,2]], 
+    [[0,0],[0,1],[1,1],[1,2]], 
+    [[0,0],[0,1],[0,2],[0,3],[0,4]], 
+    [[0,0],[0,1],[0,2],[0,3],[1,3]], 
+    [[0,0],[0,1],[0,2],[0,3],[1,2]], 
+    [[0,0],[1,0],[1,1],[2,1],[3,1]], 
+    [[0,0],[0,1],[1,0],[1,1],[0,2]], 
+    [[0,0],[0,1],[0,2],[1,0],[1,2]], 
+    [[0,0],[0,1],[0,2],[1,0],[2,0]], 
+    [[0,0],[0,1],[1,1],[1,2],[2,2]], 
+    [[0,0],[0,1],[0,2],[1,1],[2,1]], 
+    [[1,0],[0,1],[1,1],[2,1],[1,2]], 
+    [[0,0],[0,1],[1,1],[2,1],[2,2]], 
+    [[0,1],[1,1],[1,0],[1,2],[2,0]] 
+];
+
+const CONFIG = {
+    gridSize: 14, 
+    startPoints: [{r:4, c:4}, {r:9, c:9}], 
+    colors: {
+        0: '#ffffff',
+        1: '#8e44ad',
+        2: '#e67e22',
+        grid: '#ddd',
+        ghostValid: 'rgba(46, 204, 113, 0.6)', 
+        ghostInvalid: 'rgba(231, 76, 60, 0.6)'
+    }
+};
+
+// --- 設定管理器 ---
+const setup = {
+    mode: 'none',
+    time: 0,
+    
+    init: function() {
+        this.renderTimeOptions();
+    },
+
+    setMode: function(mode) {
+        this.mode = mode;
+        document.querySelectorAll('#mode-options .setup-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        const timeGroup = document.getElementById('time-group');
+        if (mode === 'none') {
+            timeGroup.classList.add('hidden');
+        } else {
+            timeGroup.classList.remove('hidden');
+            this.renderTimeOptions();
+        }
+    },
+
+    renderTimeOptions: function() {
+        const container = document.getElementById('time-options');
+        container.innerHTML = '';
+        let options = [];
+        
+        if (this.mode === 'turn') {
+            options = [
+                {label: '30秒', val: 30},
+                {label: '60秒', val: 60},
+                {label: '90秒', val: 90}
+            ];
+        } else if (this.mode === 'total') {
+            options = [
+                {label: '3分鐘', val: 180},
+                {label: '5分鐘', val: 300},
+                {label: '7分鐘', val: 420},
+                {label: '10分鐘', val: 600}
+            ];
+        }
+
+        options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = `setup-btn ${idx === 1 ? 'active' : ''}`;
+            btn.innerText = opt.label;
+            btn.onclick = (e) => {
+                document.querySelectorAll('#time-options .setup-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.time = opt.val;
+            };
+            container.appendChild(btn);
+            if(idx === 1) this.time = opt.val; // 預設選中間值
+        });
+    },
+
+    startGame: function() {
+        document.getElementById('setup-modal').classList.remove('show');
+        // 更新規則文字
+        const ruleTxt = document.getElementById('rule-timer');
+        if(this.mode === 'none') {
+            ruleTxt.innerText = "⏳ 時間：無限制";
+            document.querySelectorAll('.timer-display').forEach(el => el.style.display = 'none');
+        } else if (this.mode === 'turn') {
+            ruleTxt.innerText = `⏳ 時間：每回合 ${this.time} 秒，超時自動放棄。`;
+        } else {
+            ruleTxt.innerText = `⏳ 時間：局總 ${this.time/60} 分鐘 (倒扣)，歸零後喪失下棋權。`;
+        }
+        
+        game.initGame(this.mode, this.time);
+    }
+};
+
+class BlokusGame {
+    constructor() {
+        this.canvas = document.getElementById('mainCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        this.trayP1 = document.getElementById('tray-p1');
+        this.trayP2 = document.getElementById('tray-p2');
+        this.panelP1 = document.getElementById('p1-panel');
+        this.panelP2 = document.getElementById('p2-panel');
+
+        this.previewOverlay = document.getElementById('preview-overlay');
+        this.previewCanvas = document.getElementById('previewCanvas');
+        this.gameOverModal = document.getElementById('game-over-modal');
+        this.centerPanel = document.getElementById('center-panel');
+        
+        this.board = Array(CONFIG.gridSize).fill().map(() => Array(CONFIG.gridSize).fill(0));
+        
+        // 玩家狀態擴充
+        this.players = {
+            1: { pieces: [...SHAPES], score: 89, isTimeOut: false, timeLeft: 0 }, 
+            2: { pieces: [...SHAPES], score: 89, isTimeOut: false, timeLeft: 0 }
+        };
+        
+        this.currentPlayer = 1; 
+        this.selectedPieceIdx = -1;
+        this.selectedPieceShape = null; 
+        this.consecutivePasses = 0; 
+        this.isDragging = false;
+        this.dragPos = { x: 0, y: 0 };
+        this.cellSize = 0;
+        
+        // 計時器變數
+        this.timeMode = 'none'; // 'none', 'turn', 'total'
+        this.baseTime = 0;
+        this.timerInterval = null;
+
+        // 不要在 constructor 直接 init，改由 Setup 觸發
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.bindEvents();
+    }
+
+    initGame(mode, time) {
+        this.timeMode = mode;
+        this.baseTime = time;
+
+        if (mode === 'total') {
+            this.players[1].timeLeft = time;
+            this.players[2].timeLeft = time;
+        } else if (mode === 'turn') {
+            this.players[1].timeLeft = time;
+            this.players[2].timeLeft = time;
+        }
+
+        this.renderTrays();
+        this.updateTurnVisuals();
+        this.showMsg(`P1 回合`);
+        this.checkAvailableMoves(1);
+        this.startTimer(); // 啟動計時
+    }
+
+    // --- 計時器核心邏輯 ---
+    startTimer() {
+        if (this.timeMode === 'none') return;
+        this.stopTimer(); // 清除舊的
+
+        // 若是回合制，每次切換都重置時間
+        if (this.timeMode === 'turn') {
+            this.players[this.currentPlayer].timeLeft = this.baseTime;
+        }
+
+        this.updateTimerUI();
+
+        this.timerInterval = setInterval(() => {
+            if (this.players[this.currentPlayer].timeLeft > 0) {
+                this.players[this.currentPlayer].timeLeft--;
+                this.updateTimerUI();
+            } else {
+                this.handleTimeout();
+            }
+        }, 1000);
+    }
+
+    stopTimer() {
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+    }
+
+    handleTimeout() {
+        this.stopTimer();
+        
+        if (this.timeMode === 'turn') {
+            this.showMsg(`P${this.currentPlayer} 超時！自動 Pass`);
+            setTimeout(() => this.manualPass(), 1000);
+        } 
+        else if (this.timeMode === 'total') {
+            this.players[this.currentPlayer].isTimeOut = true;
+            this.showMsg(`P${this.currentPlayer} 時間耗盡！喪失資格`);
+            
+            // 檢查是否雙方都結束
+            const p1End = this.players[1].isTimeOut || this.players[1].pieces.length === 0;
+            const p2End = this.players[2].isTimeOut || this.players[2].pieces.length === 0;
+            
+            if (p1End && p2End) {
+                setTimeout(() => this.endGame(), 1500);
+            } else {
+                // 如果只是一方超時，強制 Pass 並換對手
+                setTimeout(() => this.manualPass(), 1500);
+            }
+        }
+    }
+
+    updateTimerUI() {
+        if (this.timeMode === 'none') return;
+
+        [1, 2].forEach(p => {
+            const t = this.players[p].timeLeft;
+            const min = Math.floor(t / 60).toString().padStart(2, '0');
+            const sec = (t % 60).toString().padStart(2, '0');
+            const el = document.getElementById(`timer-p${p}`);
+            el.innerText = `${min}:${sec}`;
+            
+            if (p === this.currentPlayer && t <= 10) el.classList.add('low-time');
+            else el.classList.remove('low-time');
+        });
+    }
+
+    // --- 既有邏輯 ---
+
+    resize() {
+        const availW = this.centerPanel.clientWidth;
+        const availH = this.centerPanel.clientHeight - 60; 
+        const minDim = Math.min(availW, availH);
+        this.canvas.width = minDim;
+        this.canvas.height = minDim;
+        this.cellSize = this.canvas.width / CONFIG.gridSize;
+        this.draw();
+    }
+
+    draw() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        for(let r=0; r<CONFIG.gridSize; r++) {
+            for(let c=0; c<CONFIG.gridSize; c++) {
+                const x = c * this.cellSize;
+                const y = r * this.cellSize;
+                
+                if (this.board[r][c] !== 0) {
+                    this.drawCell(c, r, CONFIG.colors[this.board[r][c]]);
+                } else {
+                    this.ctx.strokeStyle = CONFIG.colors.grid;
+                    this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
+                }
+            }
+        }
+
+        CONFIG.startPoints.forEach((pt, idx) => {
+            if (this.board[pt.r][pt.c] === 0) {
+                const x = pt.c * this.cellSize + this.cellSize/2;
+                const y = pt.r * this.cellSize + this.cellSize/2;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, this.cellSize/4, 0, Math.PI*2);
+                this.ctx.fillStyle = idx === 0 ? CONFIG.colors[1] : CONFIG.colors[2];
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+            }
+        });
+
+        if (this.isDragging && this.selectedPieceShape) {
+            const gridPos = this.getGridPosFromScreen(this.dragPos.x, this.dragPos.y);
+            const validation = this.validateMove(gridPos.r, gridPos.c, this.selectedPieceShape, this.currentPlayer);
+            const color = validation.valid ? CONFIG.colors.ghostValid : CONFIG.colors.ghostInvalid;
+            
+            this.selectedPieceShape.forEach(block => {
+                const targetR = gridPos.r + block[0];
+                const targetC = gridPos.c + block[1];
+                const px = targetC * this.cellSize;
+                const py = targetR * this.cellSize;
+                
+                this.ctx.fillStyle = color;
+                this.ctx.fillRect(px, py, this.cellSize, this.cellSize);
+                this.ctx.strokeStyle = 'white';
+                this.ctx.strokeRect(px, py, this.cellSize, this.cellSize);
+            });
+        }
+    }
+
+    drawCell(c, r, color) {
+        const x = c * this.cellSize;
+        const y = r * this.cellSize;
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x+1, y+1, this.cellSize-2, this.cellSize-2);
+        this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        this.ctx.fillRect(x+1, y+1, this.cellSize-2, this.cellSize/2);
+    }
+
+    renderTrays() {
+        this.renderSingleTray(1, this.trayP1);
+        this.renderSingleTray(2, this.trayP2);
+    }
+
+    renderSingleTray(playerNum, container) {
+        container.innerHTML = '';
+        const pieces = this.players[playerNum].pieces;
+
+        pieces.forEach((shape, idx) => {
+            const wrapper = document.createElement('div');
+            const isSelected = (this.currentPlayer === playerNum && this.selectedPieceIdx === idx);
+            wrapper.className = `piece-item ${isSelected ? 'selected' : ''}`;
+            
+            wrapper.onclick = () => {
+                // 如果該玩家已超時(局總制)，禁止操作
+                if (this.players[playerNum].isTimeOut) return;
+                if (this.currentPlayer !== playerNum) return;
+                this.selectPiece(idx);
+            };
+
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 60; 
+            pCanvas.height = 60;
+            this.drawPieceOnCanvas(pCanvas, shape, playerNum, 8);
+            
+            wrapper.appendChild(pCanvas);
+            container.appendChild(wrapper);
+        });
+    }
+
+    selectPiece(idx) {
+        if (this.selectedPieceIdx === idx) return;
+        
+        this.selectedPieceIdx = idx;
+        this.selectedPieceShape = JSON.parse(JSON.stringify(this.players[this.currentPlayer].pieces[idx]));
+        
+        this.renderTrays();
+        this.renderPreviewBox();
+    }
+
+    renderPreviewBox() {
+        if (this.selectedPieceIdx === -1 || !this.selectedPieceShape) {
+            this.previewOverlay.classList.remove('show');
+            return;
+        }
+
+        this.previewOverlay.classList.add('show');
+        this.previewCanvas.width = 100;
+        this.previewCanvas.height = 100;
+        
+        this.drawPieceOnCanvas(this.previewCanvas, this.selectedPieceShape, this.currentPlayer, 18);
+    }
+
+    updateTurnVisuals() {
+        this.previewOverlay.style.left = '';
+        this.previewOverlay.style.top = '';
+        this.previewOverlay.classList.remove('dragging');
+
+        if (this.currentPlayer === 1) {
+            this.panelP1.classList.remove('inactive');
+            this.panelP1.classList.add('active');
+            this.panelP2.classList.remove('active');
+            this.panelP2.classList.add('inactive');
+            this.previewOverlay.classList.remove('p2-pos');
+            this.previewOverlay.classList.add('p1-pos');
+        } else {
+            this.panelP2.classList.remove('inactive');
+            this.panelP2.classList.add('active');
+            this.panelP1.classList.remove('active');
+            this.panelP1.classList.add('inactive');
+            this.previewOverlay.classList.remove('p1-pos');
+            this.previewOverlay.classList.add('p2-pos');
+        }
+        this.previewOverlay.classList.remove('show');
+    }
+
+    drawPieceOnCanvas(cvs, shape, player, cellSize = 12) {
+        const ctx = cvs.getContext('2d');
+        ctx.clearRect(0,0, cvs.width, cvs.height);
+        
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        shape.forEach(([r, c]) => {
+            if(c < minX) minX = c;
+            if(c > maxX) maxX = c;
+            if(r < minY) minY = r;
+            if(r > maxY) maxY = r;
+        });
+        
+        const w = (maxX - minX + 1) * cellSize;
+        const h = (maxY - minY + 1) * cellSize;
+        const offsetX = (cvs.width - w) / 2 - minX * cellSize;
+        const offsetY = (cvs.height - h) / 2 - minY * cellSize;
+
+        ctx.fillStyle = CONFIG.colors[player];
+        
+        shape.forEach(([r, c]) => {
+            ctx.fillRect(offsetX + c*cellSize, offsetY + r*cellSize, cellSize-1, cellSize-1);
+            if(cvs.id === 'previewCanvas') {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(offsetX + c*cellSize, offsetY + r*cellSize, cellSize-1, cellSize-1);
+            }
+        });
+    }
+
+    rotateSelected() {
+        if (!this.selectedPieceShape) return;
+        this.selectedPieceShape = this.selectedPieceShape.map(([r, c]) => [c, -r]);
+        this.normalizeShape();
+        this.renderPreviewBox();
+        this.draw(); 
+    }
+
+    flipSelected() {
+        if (!this.selectedPieceShape) return;
+        this.selectedPieceShape = this.selectedPieceShape.map(([r, c]) => [r, -c]);
+        this.normalizeShape();
+        this.renderPreviewBox();
+        this.draw();
+    }
+
+    normalizeShape(shape = this.selectedPieceShape) {
+        let minR = Infinity, minC = Infinity;
+        shape.forEach(([r, c]) => {
+            if (r < minR) minR = r;
+            if (c < minC) minC = c;
+        });
+        const normalized = shape.map(([r, c]) => [r - minR, c - minC]);
+        if(shape === this.selectedPieceShape) this.selectedPieceShape = normalized;
+        return normalized;
+    }
+
+    validateMove(gridR, gridC, shape, player) {
+        let coversStart = false;
+        let cornerContact = false;
+        let edgeContact = false;
+        let outOfBounds = false;
+        let overlap = false;
+
+        const startPt = CONFIG.startPoints[player - 1]; 
+
+        for (let block of shape) {
+            const r = gridR + block[0];
+            const c = gridC + block[1];
+
+            if (r < 0 || r >= CONFIG.gridSize || c < 0 || c >= CONFIG.gridSize) {
+                outOfBounds = true; break;
+            }
+            if (this.board[r][c] !== 0) {
+                overlap = true; break;
+            }
+            if (r === startPt.r && c === startPt.c) coversStart = true;
+
+            const neighbors = [[-1,0], [1,0], [0,-1], [0,1]];
+            for (let n of neighbors) {
+                const nr = r + n[0], nc = c + n[1];
+                if (nr >=0 && nr < CONFIG.gridSize && nc >=0 && nc < CONFIG.gridSize) {
+                    if (this.board[nr][nc] === player) edgeContact = true;
+                }
+            }
+            const corners = [[-1,-1], [-1,1], [1,-1], [1,1]];
+            for (let cn of corners) {
+                const cr = r + cn[0], cc = c + cn[1];
+                if (cr >=0 && cr < CONFIG.gridSize && cc >=0 && cc < CONFIG.gridSize) {
+                    if (this.board[cr][cc] === player) cornerContact = true;
+                }
+            }
+        }
+
+        if (outOfBounds || overlap) return { valid: false, reason: '位置無效' };
+        if (edgeContact) return { valid: false, reason: '不能邊對邊' };
+
+        const isFirstMove = this.players[player].score === 89;
+        if (isFirstMove) {
+            if (!coversStart) return { valid: false, reason: '首手需蓋住起點' };
+            return { valid: true };
+        } else {
+            if (!cornerContact) return { valid: false, reason: '需角對角相連' };
+            return { valid: true };
+        }
+    }
+
+    placePiece(gridR, gridC) {
+        if (!this.selectedPieceShape) return;
+        
+        const validation = this.validateMove(gridR, gridC, this.selectedPieceShape, this.currentPlayer);
+        
+        if (validation.valid) {
+            let pieceSize = 0;
+            this.selectedPieceShape.forEach(block => {
+                this.board[gridR + block[0]][gridC + block[1]] = this.currentPlayer;
+                pieceSize++;
+            });
+
+            this.players[this.currentPlayer].pieces.splice(this.selectedPieceIdx, 1);
+            this.players[this.currentPlayer].score -= pieceSize;
+            this.updateScoreUI();
+            
+            this.consecutivePasses = 0;
+            this.switchTurn();
+        } else {
+            this.showMsg(validation.reason);
+        }
+    }
+
+    manualPass() {
+        this.consecutivePasses++;
+        this.checkGameOverOrSwitch();
+    }
+
+    switchTurn() {
+        this.stopTimer(); // 停止當前計時
+
+        // 切換玩家
+        const nextPlayer = this.currentPlayer === 1 ? 2 : 1;
+        
+        // 檢查下一位玩家是否「時間耗盡 (Total Time Mode)」
+        if (this.timeMode === 'total' && this.players[nextPlayer].isTimeOut) {
+            // 如果下一位已經超時，檢查我自己是否也超時或無棋可走
+            if (this.players[this.currentPlayer].isTimeOut) {
+                this.endGame();
+                return;
+            }
+            // 如果我還能玩，繼續輪到我 (對手永久 Pass)
+            this.showMsg(`P${nextPlayer} 已耗盡時間，繼續 P${this.currentPlayer}`);
+            // 這裡不切換 currentPlayer，但要重啟計時
+            this.startTimer();
+            // 檢查我是否還有步數
+             if (!this.checkAvailableMoves(this.currentPlayer)) {
+                 // 我也沒步數了，結束
+                 this.endGame();
+             }
+             return;
+        }
+
+        // 正常切換
+        this.currentPlayer = nextPlayer;
+        this.showMsg(`換 P${this.currentPlayer} 下棋`);
+        
+        this.selectedPieceIdx = -1;
+        this.selectedPieceShape = null;
+        this.renderTrays(); 
+        this.updateTurnVisuals(); 
+        this.draw();
+        
+        // 啟動新回合計時
+        this.startTimer();
+
+        // 檢查新玩家是否有步數
+        setTimeout(() => {
+            if (!this.checkAvailableMoves(this.currentPlayer)) {
+                this.showMsg(`P${this.currentPlayer} 無路可走，自動 Pass`);
+                setTimeout(() => {
+                    this.consecutivePasses++;
+                    this.checkGameOverOrSwitch();
+                }, 1500);
+            }
+        }, 500);
+    }
+    
+    checkGameOverOrSwitch() {
+        if (this.consecutivePasses >= 2) {
+            this.endGame();
+        } else {
+            this.switchTurn(); 
+        }
+    }
+
+    checkAvailableMoves(player) {
+        // 若玩家超時(局總)，直接視為無步數
+        if (this.players[player].isTimeOut) return false;
+
+        const pieces = this.players[player].pieces;
+        if (pieces.length === 0) return false;
+
+        for (let shape of pieces) {
+            const variations = this.generateVariations(shape);
+            for (let vShape of variations) {
+                for (let r = 0; r < CONFIG.gridSize; r++) {
+                    for (let c = 0; c < CONFIG.gridSize; c++) {
+                        const result = this.validateMove(r, c, vShape, player);
+                        if (result.valid) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    generateVariations(shape) {
+        let vars = [];
+        let current = JSON.parse(JSON.stringify(shape));
+        
+        for(let i=0; i<4; i++) {
+            vars.push(this.normalizeShape(current));
+            current = current.map(([r, c]) => [c, -r]); 
+        }
+        
+        current = JSON.parse(JSON.stringify(shape));
+        current = current.map(([r, c]) => [r, -c]); 
+        
+        for(let i=0; i<4; i++) {
+            vars.push(this.normalizeShape(current));
+            current = current.map(([r, c]) => [c, -r]);
+        }
+        
+        return vars;
+    }
+
+    endGame() {
+        this.stopTimer();
+        const s1 = this.players[1].score;
+        const s2 = this.players[2].score;
+        let msg = "";
+        
+        if (s1 < s2) msg = "P1 (紫色) 獲勝！";
+        else if (s2 < s1) msg = "P2 (橘色) 獲勝！";
+        else msg = "平手！";
+
+        document.getElementById('winner-msg').innerText = msg;
+        document.getElementById('final-score').innerText = `P1: ${s1} 分 | P2: ${s2} 分`;
+        
+        // 顯示超時資訊
+        let timeMsg = "";
+        if (this.players[1].isTimeOut) timeMsg += "P1 時間耗盡 ";
+        if (this.players[2].isTimeOut) timeMsg += "P2 時間耗盡";
+        document.getElementById('timeout-msg').innerText = timeMsg;
+
+        this.gameOverModal.classList.add('show');
+    }
+
+    updateScoreUI() {
+        document.getElementById('s1').innerText = this.players[1].score;
+        document.getElementById('s2').innerText = this.players[2].score;
+    }
+
+    showMsg(text) {
+        const el = document.getElementById('msg-overlay');
+        el.innerText = text;
+        el.style.opacity = 1;
+        setTimeout(() => el.style.opacity = 0, 1500);
+    }
+
+    getEventPos(e) {
+        if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        if (e.changedTouches && e.changedTouches.length > 0) {
+            return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    getGridPosFromScreen(x, y) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const cx = (x - rect.left) * scaleX;
+        const cy = (y - rect.top) * scaleY;
+        const c = Math.floor(cx / this.cellSize);
+        const r = Math.floor(cy / this.cellSize);
+        return { r, c };
+    }
+
+    bindEvents() {
+        const start = (e) => {
+            // 超時玩家禁止拖曳
+            if (this.players[this.currentPlayer].isTimeOut) return;
+            
+            if (this.selectedPieceIdx === -1) return;
+            if (e.target.tagName === 'BUTTON') return;
+            if (e.target !== this.canvas && !this.previewOverlay.contains(e.target)) return;
+
+            e.preventDefault();
+            this.isDragging = true;
+            this.dragPos = this.getEventPos(e);
+            
+            this.previewOverlay.classList.add('dragging');
+            this.updateOverlayPosition(); 
+            this.draw();
+        };
+
+        const move = (e) => {
+            if (!this.isDragging) return;
+            e.preventDefault();
+            this.dragPos = this.getEventPos(e);
+            this.updateOverlayPosition();
+            this.draw();
+        };
+
+        const end = (e) => {
+            if (!this.isDragging) return;
+            this.isDragging = false;
+            
+            this.previewOverlay.classList.remove('dragging');
+            this.previewOverlay.style.left = '';
+            this.previewOverlay.style.top = '';
+            
+            const pos = this.getEventPos(e);
+            const rect = this.canvas.getBoundingClientRect();
+            
+            if (pos.x >= rect.left && pos.x <= rect.right && 
+                pos.y >= rect.top && pos.y <= rect.bottom) {
+                const gridPos = this.getGridPosFromScreen(this.dragPos.x, this.dragPos.y);
+                this.placePiece(gridPos.r, gridPos.c);
+            }
+            this.draw();
+        };
+
+        window.addEventListener('mousedown', start);
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', end);
+        window.addEventListener('touchstart', start, {passive: false});
+        window.addEventListener('touchmove', move, {passive: false});
+        window.addEventListener('touchend', end);
+    }
+
+    updateOverlayPosition() {
+        if (!this.isDragging) return;
+        const rect = this.centerPanel.getBoundingClientRect();
+        const x = this.dragPos.x - rect.left;
+        const y = this.dragPos.y - rect.top;
+        this.previewOverlay.style.left = x + 'px';
+        this.previewOverlay.style.top = y + 'px';
+    }
+}
+
+// 初始化 Setup 而非直接 Start Game
+setup.init();
+const game = new BlokusGame();
+
+</script>
+</body>
+</html>
