@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>五子棋競技對戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+            touch-action: none;
+        }
+
+        .board-bg {
+            background-color: #eecfa1;
+            background-image: linear-gradient(45deg, #e6c694 25%, transparent 25%, transparent 75%, #e6c694 75%, #e6c694),
+            linear-gradient(45deg, #e6c694 25%, transparent 25%, transparent 75%, #e6c694 75%, #e6c694);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal { transition: opacity 0.3s ease-in-out; }
+        .hidden-modal { opacity: 0; pointer-events: none; }
+
+        /* 玩家面板狀態樣式 */
+        .player-panel {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.4;
+            transform: scale(0.95);
+            filter: grayscale(0.8);
+        }
+        
+        .player-panel.active {
+            opacity: 1;
+            transform: scale(1.05);
+            filter: grayscale(0);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            border-color: #3b82f6;
+        }
+
+        /* 棋子樣式 (用於面板展示) */
+        .stone-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+            margin-bottom: 8px;
+        }
+        .stone-icon-black {
+            background: radial-gradient(circle at 30% 30%, #666, #000);
+        }
+        .stone-icon-white {
+            background: radial-gradient(circle at 30% 30%, #fff, #ddd);
+            border: 1px solid #ccc;
+        }
+
+        /* 呼吸燈動畫 */
+        @keyframes pulse-light {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .player-panel.active .turn-badge {
+            animation: pulse-light 2s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden relative">
+
+    <!-- 頂部資訊列 -->
+    <div class="w-full h-16 bg-white shadow-md z-10 flex items-center justify-between px-4 relative shrink-0">
+        <div class="w-24"></div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-800 absolute left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+            五子棋競技
+        </h1>
+        <div class="flex items-center gap-2 z-20">
+            <button onclick="openRules()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded shadow text-sm transition flex items-center gap-1">
+                <i class="fas fa-book"></i> <span class="hidden sm:inline">規則</span>
+            </button>
+            <button onclick="resetGamePrompt()" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded shadow text-sm transition flex items-center gap-1">
+                <i class="fas fa-redo"></i> <span class="hidden sm:inline">設 定</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 新增：提示訊息橫幅 -->
+    <div id="hint-notification" class="w-full p-2 text-center text-sm font-bold hidden z-20 relative shrink-0 transition-all duration-300">
+        <!-- 內容由 JS 動態填充 -->
+    </div>
+
+    <!-- 遊戲主區域 -->
+    <div class="flex-grow flex flex-col md:flex-row items-center justify-center p-2 md:p-4 gap-4 md:gap-8 w-full h-full overflow-hidden relative" style="max-height: calc(100vh - 64px);">
+        
+        <!-- 左側：黑方面板 -->
+        <div id="panel-black" class="player-panel flex flex-row md:flex-col items-center justify-center bg-white p-3 md:p-6 rounded-xl border-2 border-gray-200 shadow-lg w-full md:w-32 lg:w-40 shrink-0">
+            <div class="stone-icon stone-icon-black mr-3 md:mr-0"></div>
+            <div class="text-center">
+                <h3 class="text-lg font-bold text-gray-800">黑棋</h3>
+                <span class="text-xs text-gray-500">(先手)</span>
+                <div class="turn-badge mt-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-bold hidden md:block opacity-0 transition-opacity">
+                    思考中...
+                </div>
+            </div>
+            <div id="timer-black" class="timer-box ml-auto md:ml-0 md:mt-4 font-mono text-xl font-bold text-gray-600">--</div>
+        </div>
+
+        <!-- 中央：棋盤 -->
+        <div class="relative board-bg rounded p-1 sm:p-2 shadow-2xl shrink-0" style="max-height: 80vh; aspect-ratio: 1/1;">
+            <canvas id="gameCanvas" width="600" height="600" class="cursor-pointer bg-[#dcb35c] rounded w-full h-full"></canvas>
+        </div>
+
+        <!-- 右側：白方面板 -->
+        <div id="panel-white" class="player-panel flex flex-row md:flex-col items-center justify-center bg-white p-3 md:p-6 rounded-xl border-2 border-gray-200 shadow-lg w-full md:w-32 lg:w-40 shrink-0">
+            <div class="stone-icon stone-icon-white mr-3 md:mr-0"></div>
+            <div class="text-center">
+                <h3 class="text-lg font-bold text-gray-800">白棋</h3>
+                <span class="text-xs text-gray-500">(後手)</span>
+                <div class="turn-badge mt-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-bold hidden md:block opacity-0 transition-opacity">
+                    思考中...
+                </div>
+            </div>
+            <div id="timer-white" class="timer-box ml-auto md:ml-0 md:mt-4 font-mono text-xl font-bold text-gray-600">--</div>
+        </div>
+
+    </div>
+
+    <!-- 初始設定浮窗 (Settings Modal) -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 modal backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-gray-800 text-white p-4 text-center">
+                <h2 class="text-2xl font-bold">五子棋對戰設定</h2>
+            </div>
+            
+            <div class="p-6 overflow-y-auto">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- 左側：設定 -->
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-cog"></i> 對局設定</h3>
+                        
+                        <!-- 計時設定 -->
+                        <div class="mb-5">
+                            <label class="block text-gray-700 font-bold mb-2 text-sm">⏱️ 時間規則</label>
+                            <select id="timer-mode" class="w-full p-2 border border-gray-300 rounded mb-2 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="none">不計時 (輕鬆模式)</option>
+                                <option value="step">步時限制 (每手限時)</option>
+                                <option value="bank">局時倒扣 (總時間限制)</option>
+                            </select>
+                            
+                            <div id="timer-options" class="hidden">
+                                <select id="timer-seconds" class="w-full p-2 border border-gray-300 rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <!-- JS 動態生成 -->
+                                </select>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">註：黑棋下第一手後才開始計時。</p>
+                        </div>
+
+                        <!-- 提示設定 (簡化) -->
+                        <div class="mb-5">
+                            <label class="block text-gray-700 font-bold mb-2 text-sm">🛡️ 防守提示</label>
+                            <div class="bg-blue-50 p-3 rounded border border-blue-200 space-y-3">
+                                <div class="text-sm text-gray-600 mb-2">
+                                    當對手形成致命威脅時，在上方顯示文字警告：
+                                </div>
+                                
+                                <!-- 僅保留 活四/衝四 設定 -->
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-bold text-red-600">提示：對手已經四顆了</span>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="hint-toggle-four" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側：玩法說明 -->
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-info-circle"></i> 玩法與操作</h3>
+                        <ul class="space-y-3 text-sm text-gray-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fas fa-mouse-pointer mt-1 text-blue-500"></i>
+                                <span><strong>操作方式：</strong>點擊棋盤交叉點落子。黑棋先行，雙方輪流下子。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fas fa-trophy mt-1 text-yellow-500"></i>
+                                <span><strong>獲勝條件：</strong>先在橫、直、斜任一方向連成 <strong>5顆</strong> 同色棋子者獲勝。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fas fa-shield-alt mt-1 text-red-500"></i>
+                                <span><strong>關鍵提示：</strong>可選擇是否開啟「對手已經四顆了」的危險警告。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fas fa-hourglass-start mt-1 text-green-500"></i>
+                                <span><strong>計時開始：</strong>黑棋落下第一子後，計時器才開始倒數。超時判負。</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-gray-50">
+                <button onclick="startGame()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg transform transition hover:scale-[1.02] text-lg">
+                    開始對戰
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 規則說明浮窗 -->
+    <div id="rules-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal hidden-modal">
+        <div class="bg-white rounded-lg shadow-2xl w-11/12 max-w-lg p-6 relative">
+            <button onclick="closeRules()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">規則與說明</h2>
+            
+            <div class="space-y-4 text-gray-700 text-sm leading-relaxed">
+                <p><strong>基本規則：</strong>黑先白後，五子連線即勝。</p>
+                <p><strong>防守提示說明 (若開啟)：</strong></p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>只有當對手下完棋後，盤面出現致命威脅時，才會在上方顯示警告。</li>
+                    <li><span class="text-red-500 font-bold">紅色警告</span>：對手已經四顆了，必須立即防守，否則輸棋。</li>
+                </ul>
+            </div>
+            <button onclick="closeRules()" class="mt-6 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded">
+                回到遊戲
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲結束/訊息浮窗 -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 modal hidden-modal">
+        <div class="bg-white rounded-lg shadow-2xl w-80 p-6 text-center transform scale-105">
+            <div id="message-icon" class="text-6xl mb-4">🏆</div>
+            <h2 id="message-title" class="text-2xl font-bold mb-2 text-gray-800">遊戲結束</h2>
+            <p id="message-body" class="text-gray-600 mb-6">黑方獲勝！</p>
+            <div class="flex gap-2 justify-center w-full">
+                <!-- 修改按鈕行為：都回到設定頁 -->
+                <button onclick="resetToSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded font-bold w-full shadow-md">
+                    回到設定選單重新開始
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 遊戲常數與狀態 ---
+        const BOARD_SIZE = 15;
+        const EMPTY = 0;
+        const BLACK = 1;
+        const WHITE = 2;
+        
+        let canvas, ctx;
+        let cellWidth, boardPadding;
+        let board = [];
+        let currentPlayer = BLACK;
+        let gameActive = false;
+        let hasStarted = false; // 標記遊戲是否已正式開始(下了第一子)
+        let lastMove = null;
+        let showHintsFour = false;  // 活四/衝四提示
+        
+        // 計時器相關
+        let timerMode = 'none'; 
+        let timerSetting = 0;   
+        let timers = { [BLACK]: 0, [WHITE]: 0 };
+        let timerInterval = null;
+        let lastTimeCheck = 0;
+
+        // --- 初始化 ---
+        window.onload = function() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            window.addEventListener('resize', resizeBoard);
+            
+            canvas.addEventListener('mousedown', handleInput);
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                handleInput(e.touches[0]);
+            }, {passive: false});
+
+            document.getElementById('timer-mode').addEventListener('change', updateTimerOptions);
+            
+            updateTimerOptions(); 
+            resizeBoard();
+            // 初始顯示設定視窗
+            document.getElementById('settings-modal').classList.remove('hidden-modal');
+        };
+
+        function resizeBoard() {
+            const container = canvas.parentElement;
+            const size = Math.min(container.clientWidth, container.clientHeight); 
+            canvas.width = size;
+            canvas.height = size;
+            boardPadding = size * 0.05; 
+            cellWidth = (size - 2 * boardPadding) / (BOARD_SIZE - 1);
+            if (gameActive || board.length > 0 || lastMove) {
+                drawBoard();
+            }
+        }
+
+        // --- UI 控制邏輯 ---
+        function updateTimerOptions() {
+            const mode = document.getElementById('timer-mode').value;
+            const optionsDiv = document.getElementById('timer-options');
+            const select = document.getElementById('timer-seconds');
+            select.innerHTML = '';
+            if (mode === 'none') {
+                optionsDiv.classList.add('hidden');
+            } else if (mode === 'step') {
+                optionsDiv.classList.remove('hidden');
+                [5, 10, 15, 20, 30].forEach(sec => {
+                    const opt = document.createElement('option');
+                    opt.value = sec; opt.text = `每手 ${sec} 秒`; select.appendChild(opt);
+                });
+            } else if (mode === 'bank') {
+                optionsDiv.classList.remove('hidden');
+                [3, 5, 7].forEach(min => {
+                    const opt = document.createElement('option');
+                    opt.value = min * 60; opt.text = `總時 ${min} 分鐘`; select.appendChild(opt);
+                });
+            }
+        }
+
+        function startGame() {
+            timerMode = document.getElementById('timer-mode').value;
+            timerSetting = parseInt(document.getElementById('timer-seconds').value);
+            
+            // 讀取分開的提示設定 (只剩四顆的提示)
+            showHintsFour = document.getElementById('hint-toggle-four').checked;
+            
+            currentPlayer = BLACK;
+            gameActive = true;
+            hasStarted = false; // 重置開始標記
+            lastMove = null;
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(EMPTY));
+            
+            initTimers(); // 初始化時間顯示，但不開始計時
+            
+            document.getElementById('settings-modal').classList.add('hidden-modal');
+            document.getElementById('message-modal').classList.add('hidden-modal');
+            updateHintNotification(); // 清除舊提示
+            updateUI(); 
+            resizeBoard(); 
+            drawBoard();
+        }
+
+        // 新增：回到設定選單的函數
+        function resetToSettings() {
+            stopTimer();
+            gameActive = false;
+            hasStarted = false;
+            document.getElementById('message-modal').classList.add('hidden-modal');
+            // 清空棋盤視覺
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(EMPTY));
+            lastMove = null;
+            drawBoard();
+            updateTimerUI(BLACK, '--');
+            updateTimerUI(WHITE, '--');
+            updateHintNotification(); // 清藏提示
+            // 顯示設定視窗
+            document.getElementById('settings-modal').classList.remove('hidden-modal');
+        }
+        
+        function resetGamePrompt() {
+            if(confirm("確定要結束當前對局並回到設定選單嗎？")) {
+                resetToSettings();
+            }
+        }
+
+        function openRules() {
+            document.getElementById('rules-modal').classList.remove('hidden-modal');
+        }
+        function closeRules() {
+            document.getElementById('rules-modal').classList.add('hidden-modal');
+        }
+
+        // 新增：更新提示橫幅文字
+        function updateHintNotification() {
+            const hintBox = document.getElementById('hint-notification');
+            
+            // 如果沒開啟提示，直接隱藏
+            if (!gameActive || !showHintsFour) {
+                hintBox.classList.add('hidden');
+                return;
+            }
+
+            const threats = analyzeBoardForThreats();
+            let maxType = 0;
+            for(const t of threats) {
+                if (t.type > maxType) maxType = t.type;
+            }
+
+            hintBox.className = "w-full p-2 text-center text-sm font-bold z-20 relative shrink-0 transition-all duration-300 border-l-4 shadow-sm";
+
+            // 邏輯判斷：Type 2: 致命威脅 (已由演算法確保是對手有4顆)
+            if (maxType === 2 && showHintsFour) {
+                hintBox.innerText = `⚠️ 警告：對方已經四顆了`;
+                hintBox.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+                hintBox.classList.remove('hidden');
+            } else {
+                hintBox.classList.add('hidden');
+            }
+        }
+
+
+        // --- 遊戲核心邏輯 ---
+
+        function handleInput(e) {
+            if (!gameActive) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const col = Math.round((x - boardPadding) / cellWidth);
+            const row = Math.round((y - boardPadding) / cellWidth);
+
+            if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
+                const centerX = boardPadding + col * cellWidth;
+                const centerY = boardPadding + row * cellWidth;
+                const dist = Math.sqrt((x - centerX)**2 + (y - centerY)**2);
+                
+                if (dist < cellWidth * 0.45 && board[row][col] === EMPTY) {
+                    makeMove(row, col);
+                }
+            }
+        }
+
+        function makeMove(row, col) {
+            // 檢查是否為第一手，是則開始計時
+            if (!hasStarted) {
+                hasStarted = true;
+                startTimer();
+            }
+
+            board[row][col] = currentPlayer;
+            lastMove = { row, col };
+            
+            drawBoard(); // 繪製棋子和最後一手標記
+            
+            if (checkWin(row, col, currentPlayer)) {
+                endGame(currentPlayer, 'win');
+                return;
+            }
+            if (checkDraw()) {
+                endGame(null, 'draw');
+                return;
+            }
+
+            // 換手
+            currentPlayer = currentPlayer === BLACK ? WHITE : BLACK;
+            
+            if (timerMode === 'step') {
+                timers[BLACK] = timerSetting * 1000;
+                timers[WHITE] = timerSetting * 1000;
+            }
+            
+            updateUI(); // 切換面板
+            updateHintNotification(); // 更新文字提示
+            // drawBoard(); // 不需要再重繪一次，updateUI和updateHintNotification不影響棋盤
+        }
+
+        function checkWin(row, col, player) {
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (let [dx, dy] of directions) {
+                let count = 1;
+                for (let i = 1; i < 5; i++) {
+                    const r = row + i * dy;
+                    const c = col + i * dx;
+                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE || board[r][c] !== player) break;
+                    count++;
+                }
+                for (let i = 1; i < 5; i++) {
+                    const r = row - i * dy;
+                    const c = col - i * dx;
+                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE || board[r][c] !== player) break;
+                    count++;
+                }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+
+        function checkDraw() {
+            return board.every(row => row.every(cell => cell !== EMPTY));
+        }
+
+        // --- 防守提示演算法 (分析威脅) ---
+        // 分析當前局面，找出"對手"（剛下完棋的那方）製造的威脅點
+        function analyzeBoardForThreats() {
+            const threats = [];
+            // 我們要檢查的是"對手"的棋型。如果現在輪到黑棋，表示白棋剛下完，我們要檢查白棋的威脅。
+            const opponent = currentPlayer === BLACK ? WHITE : BLACK;
+            
+            for(let r=0; r<BOARD_SIZE; r++){
+                for(let c=0; c<BOARD_SIZE; c++){
+                    if(board[r][c] === EMPTY) {
+                        // 假設對手下在這個空位，評估其強度
+                        const type = evaluateMoveStrength(r, c, opponent);
+                        if (type > 0) {
+                            threats.push({r, c, type}); 
+                        }
+                    }
+                }
+            }
+            return threats;
+        }
+
+        function evaluateMoveStrength(row, col, player) {
+            board[row][col] = player; // 暫時落下，看看會發生什麼事
+            let isWin = false; 
+            // 注意：我們移除 isFour 的變數，因為我們只在乎 "是否已經4顆"
+            // 而 "已經4顆" 的定義是：再下一子，就會變成5顆 (count >= 5)
+            
+            const directions = [[1,0], [0,1], [1,1], [1,-1]];
+            
+            for (let [dx, dy] of directions) {
+                let count = 1; 
+                let i = 1;
+                while (true) {
+                    const r = row + i * dy; const c = col + i * dx;
+                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
+                    if (board[r][c] === player) count++;
+                    else if (board[r][c] === EMPTY) { break; } else break; 
+                    i++;
+                }
+                i = 1;
+                while (true) {
+                    const r = row - i * dy; const c = col - i * dx;
+                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
+                    if (board[r][c] === player) count++;
+                    else if (board[r][c] === EMPTY) { break; } else break; 
+                    i++;
+                }
+                if (count >= 5) isWin = true;
+            }
+            board[row][col] = EMPTY; // 復原
+
+            // 修正點：只有當模擬落子後能連成5顆（代表盤面上已經有4顆，或形成了雙4等必勝局），才回傳2
+            // 如果模擬後只有4顆（代表盤面上只有3顆），則回傳0 (不提示)
+            if (isWin) return 2; 
+            return 0;
+        }
+
+        // --- 繪圖邏輯 (已移除繪製提示點) ---
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 畫線
+            ctx.beginPath();
+            ctx.strokeStyle = "#5d4037";
+            ctx.lineWidth = canvas.width < 400 ? 1 : 1.5;
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                ctx.moveTo(boardPadding, boardPadding + i * cellWidth);
+                ctx.lineTo(canvas.width - boardPadding, boardPadding + i * cellWidth);
+                ctx.moveTo(boardPadding + i * cellWidth, boardPadding);
+                ctx.lineTo(boardPadding + i * cellWidth, canvas.height - boardPadding);
+            }
+            ctx.stroke();
+            // 畫星位
+            const stars = [3, 11, 7];
+            ctx.fillStyle = "#5d4037";
+            for(let r of stars) {
+                for(let c of stars) {
+                    if ((r === 7 && c !== 7) || (c === 7 && r !== 7)) continue;
+                    ctx.beginPath();
+                    ctx.arc(boardPadding + c * cellWidth, boardPadding + r * cellWidth, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            // 畫棋子
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] !== EMPTY) {
+                        drawPiece(r, c, board[r][c]);
+                    }
+                }
+            }
+            // 標記最後一手
+            if (lastMove) {
+                const cx = boardPadding + lastMove.col * cellWidth;
+                const cy = boardPadding + lastMove.row * cellWidth;
+                ctx.beginPath();
+                ctx.strokeStyle = "#ef4444"; // red-500
+                ctx.lineWidth = 3;
+                ctx.arc(cx, cy, cellWidth * 0.22, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        function drawPiece(row, col, type) {
+            const cx = boardPadding + col * cellWidth;
+            const cy = boardPadding + row * cellWidth;
+            const radius = cellWidth * 0.45;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(cx - radius/3, cy - radius/3, radius/10, cx, cy, radius);
+            if (type === BLACK) {
+                gradient.addColorStop(0, "#666"); gradient.addColorStop(1, "#000");
+            } else {
+                gradient.addColorStop(0, "#fff"); gradient.addColorStop(1, "#d1d5db");
+            }
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.shadowColor = "rgba(0,0,0,0.3)";
+            ctx.shadowBlur = 3; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
+            ctx.shadowColor = "transparent";
+        }
+
+        // --- 計時器邏輯 ---
+        function initTimers() {
+            if (timerMode === 'none') {
+                updateTimerUI(BLACK, '--'); updateTimerUI(WHITE, '--'); return;
+            }
+            const initialTime = timerSetting * 1000;
+            timers[BLACK] = initialTime; timers[WHITE] = initialTime;
+            updateTimerDisplay();
+        }
+
+        function startTimer() {
+            stopTimer();
+            if (timerMode === 'none') return;
+            lastTimeCheck = Date.now();
+            timerInterval = setInterval(() => {
+                if (!gameActive) { stopTimer(); return; }
+                const now = Date.now();
+                const delta = now - lastTimeCheck;
+                lastTimeCheck = now;
+                timers[currentPlayer] -= delta;
+                updateTimerDisplay();
+                if (timers[currentPlayer] <= 0) {
+                    timers[currentPlayer] = 0;
+                    updateTimerDisplay();
+                    stopTimer();
+                    endGame(currentPlayer === BLACK ? WHITE : BLACK, 'timeout');
+                }
+            }, 100);
+        }
+
+        function stopTimer() {
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        }
+
+        function updateTimerDisplay() {
+            const formatTime = (ms) => {
+                const totalSec = Math.ceil(ms / 1000);
+                if (timerMode === 'step') return `${totalSec}s`;
+                const m = Math.floor(totalSec / 60); const s = totalSec % 60;
+                return `${m}:${s.toString().padStart(2, '0')}`;
+            };
+            updateTimerUI(BLACK, formatTime(timers[BLACK]), timers[BLACK]);
+            updateTimerUI(WHITE, formatTime(timers[WHITE]), timers[WHITE]);
+        }
+
+        function updateTimerUI(player, text, ms = 99999) {
+            const el = document.getElementById(player === BLACK ? 'timer-black' : 'timer-white');
+            el.innerText = text;
+            if (timerMode !== 'none' && ms < 5000 && hasStarted) {
+                el.classList.add('text-red-600', 'animate-pulse'); el.classList.remove('text-gray-600');
+            } else {
+                el.classList.add('text-gray-600'); el.classList.remove('text-red-600', 'animate-pulse');
+            }
+        }
+
+        function updateUI() {
+            const pBlack = document.getElementById('panel-black');
+            const pWhite = document.getElementById('panel-white');
+            pBlack.classList.remove('active'); pWhite.classList.remove('active');
+            pBlack.querySelector('.turn-badge').style.opacity = '0';
+            pWhite.querySelector('.turn-badge').style.opacity = '0';
+            if (currentPlayer === BLACK) {
+                pBlack.classList.add('active'); pBlack.querySelector('.turn-badge').style.opacity = '1';
+            } else {
+                pWhite.classList.add('active'); pWhite.querySelector('.turn-badge').style.opacity = '1';
+            }
+        }
+
+        function endGame(winner, reason) {
+            gameActive = false;
+            stopTimer();
+            updateHintNotification(); // 清除提示橫幅
+            const modal = document.getElementById('message-modal');
+            const title = document.getElementById('message-title');
+            const body = document.getElementById('message-body');
+            const icon = document.getElementById('message-icon');
+            modal.classList.remove('hidden-modal');
+            if (reason === 'draw') {
+                icon.innerText = "🤝"; title.innerText = "和局"; body.innerText = "棋盤已滿，不分勝負！";
+            } else {
+                const winnerName = winner === BLACK ? "黑方" : "白方";
+                icon.innerText = "🏆"; title.innerText = `${winnerName}獲勝！`;
+                body.innerText = reason === 'timeout' ? `對手時間耗盡，${winnerName}自動獲勝！` : `${winnerName}完成五子連線！`;
+            }
+        }
+    </script>
+</body>
+</html>
