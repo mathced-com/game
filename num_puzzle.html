@@ -107,7 +107,7 @@
         </div>
     </div>
 
-    <!-- Win Modal (Upload Score) -->
+    <!-- Win Modal -->
     <div id="win-modal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-bounce-in">
             <div class="text-5xl mb-2">🏆</div>
@@ -119,9 +119,17 @@
                 <div class="flex justify-between"><span class="text-slate-400">步數</span><span id="win-moves" class="font-bold">0</span></div>
             </div>
 
-            <!-- Upload Form -->
-            <div id="upload-section" class="mb-4">
-                <label class="block text-left text-xs font-bold text-slate-500 mb-1">輸入名字登上排行榜</label>
+            <!-- Rank Checking Section -->
+            <div id="rank-check-section" class="mb-4">
+                <div class="flex flex-col items-center justify-center space-y-2 py-4">
+                    <div class="loader"></div>
+                    <p class="text-xs text-slate-500">正在驗證排名...</p>
+                </div>
+            </div>
+
+            <!-- Upload Form (Initially Hidden) -->
+            <div id="upload-section" class="mb-4 hidden">
+                <p class="text-sm font-bold text-green-600 mb-2">恭喜！您進入了前 10 名！🎉</p>
                 <div class="flex gap-2">
                     <input type="text" id="player-name" placeholder="您的暱稱" maxlength="10" class="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                     <button onclick="submitScore()" id="submit-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition flex items-center justify-center min-w-[80px]">
@@ -129,6 +137,12 @@
                     </button>
                 </div>
                 <p id="upload-status" class="text-xs text-red-500 mt-1 h-4"></p>
+            </div>
+
+             <!-- Not Qualified Message (Initially Hidden) -->
+             <div id="not-qualified-section" class="mb-4 hidden">
+                <p class="text-sm font-bold text-slate-500 mb-2">很遺憾，未能擠進前 10 名。</p>
+                <p class="text-xs text-slate-400">再接再厲，下次一定可以！</p>
             </div>
 
             <div class="grid grid-cols-2 gap-2 mt-4">
@@ -192,6 +206,11 @@
         const lbModal = document.getElementById('leaderboard-modal');
         const uploadStatus = document.getElementById('upload-status');
         const submitBtn = document.getElementById('submit-btn');
+
+        // Modal Sections
+        const rankCheckSection = document.getElementById('rank-check-section');
+        const uploadSection = document.getElementById('upload-section');
+        const notQualifiedSection = document.getElementById('not-qualified-section');
 
         // --- 核心遊戲邏輯 ---
 
@@ -317,7 +336,66 @@
                 document.getElementById('win-time').innerText = timerDisplay.innerText;
                 document.getElementById('win-moves').innerText = moves;
                 
-                setTimeout(() => winModal.classList.remove('hidden'), 500);
+                // Show modal and start checking rank
+                winModal.classList.remove('hidden');
+                checkRankEligibility();
+            }
+        }
+
+        // --- 排行榜資格檢查 ---
+        async function checkRankEligibility() {
+            rankCheckSection.classList.remove('hidden');
+            uploadSection.classList.add('hidden');
+            notQualifiedSection.classList.add('hidden');
+
+            try {
+                const cacheBuster = new Date().getTime();
+                // 抓取目前的 Top 10
+                const response = await fetch(`${GAS_API_URL}?mode=${currentSize}&t=${cacheBuster}`);
+                const textData = await response.text();
+                let data = [];
+                try {
+                    data = JSON.parse(textData);
+                } catch (e) {
+                    // 若解析失敗，假設是空的或出錯，預設允許輸入
+                    console.error("API Error", e);
+                }
+
+                // 判斷邏輯
+                let isQualified = false;
+                
+                // 1. 如果資料少於 10 筆，絕對入選
+                if (!Array.isArray(data) || data.length < 10) {
+                    isQualified = true;
+                } else {
+                    // 2. 如果已滿 10 筆，比較第 10 名 (最後一名)
+                    const lastPlace = data[data.length - 1];
+                    const lastTime = lastPlace.raw_time ? Number(lastPlace.raw_time) : 9999999999;
+                    const lastMoves = lastPlace.moves ? Number(lastPlace.moves) : 9999999999;
+
+                    // 比較時間
+                    if (finalTimeMs < lastTime) {
+                        isQualified = true;
+                    } else if (finalTimeMs === lastTime) {
+                        // 時間相同比步數
+                        if (moves < lastMoves) {
+                            isQualified = true;
+                        }
+                    }
+                }
+
+                rankCheckSection.classList.add('hidden');
+                if (isQualified) {
+                    uploadSection.classList.remove('hidden');
+                } else {
+                    notQualifiedSection.classList.remove('hidden');
+                }
+
+            } catch (err) {
+                console.error("檢查排行失敗:", err);
+                // 出錯時的 fallback：為了不讓玩家生氣，顯示輸入框
+                rankCheckSection.classList.add('hidden');
+                uploadSection.classList.remove('hidden');
             }
         }
 
@@ -402,7 +480,6 @@
             listDiv.innerHTML = '<div class="flex justify-center items-center h-40"><div class="loader"></div></div>';
 
             try {
-                // 修正：加入 &t=時間戳記 來防止瀏覽器快取 (Cache Busting)
                 const cacheBuster = new Date().getTime();
                 const response = await fetch(`${GAS_API_URL}?mode=${mode}&t=${cacheBuster}`);
                 const textData = await response.text();
@@ -426,6 +503,7 @@
                 }
 
                 data.forEach((item, index) => {
+                    // 前三名顏色調整
                     const rankColor = index === 0 ? 'text-yellow-500' : index === 1 ? 'text-slate-400' : index === 2 ? 'text-amber-600' : 'text-slate-600';
                     const row = document.createElement('div');
                     row.className = "flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100";
