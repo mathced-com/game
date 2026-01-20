@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三國華容道 - 智慧導航版 (A*演算法)</title>
+    
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel 用於解析 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* 自定義動畫樣式 */
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.5s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+        }
+        /* 淡入動畫 */
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out forwards;
+        }
+        /* 提示卡片滑入 */
+        @keyframes slide-up {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+            animation: slide-up 0.3s ease-out forwards;
+        }
+        /* 箭頭脈衝 */
+        @keyframes pulse-arrow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .animate-pulse-arrow {
+            animation: pulse-arrow 1.5s infinite;
+        }
+        .cursor-wait {
+            cursor: wait;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+        // --- 常數定義 ---
+        const BOARD_WIDTH = 4;
+        const BOARD_HEIGHT = 5;
+
+        // 初始佈局 (經典橫刀立馬)
+        // 曹操(1,0), 張飛(0,0), 趙雲(3,0), 馬超(0,2), 黃忠(3,2), 關羽(1,2)
+        // 卒: (1,3), (2,3), (0,4), (3,4)
+        const INITIAL_LAYOUT = [
+            { id: 'caocao', type: 'caocao', name: '曹操', x: 1, y: 0, w: 2, h: 2, color: 'bg-red-600' },
+            { id: 'zhangfei', type: 'v-general', name: '張飛', x: 0, y: 0, w: 1, h: 2, color: 'bg-yellow-600' },
+            { id: 'zhaoyun', type: 'v-general', name: '趙雲', x: 3, y: 0, w: 1, h: 2, color: 'bg-blue-600' },
+            { id: 'machao', type: 'v-general', name: '馬超', x: 0, y: 2, w: 1, h: 2, color: 'bg-blue-600' },
+            { id: 'guanyu', type: 'h-general', name: '關羽', x: 1, y: 2, w: 2, h: 1, color: 'bg-green-600' },
+            { id: 'huangzhong', type: 'v-general', name: '黃忠', x: 3, y: 2, w: 1, h: 2, color: 'bg-yellow-600' },
+            { id: 'soldier1', type: 'soldier', name: '卒', x: 1, y: 3, w: 1, h: 1, color: 'bg-stone-500' },
+            { id: 'soldier2', type: 'soldier', name: '卒', x: 2, y: 3, w: 1, h: 1, color: 'bg-stone-500' },
+            { id: 'soldier3', type: 'soldier', name: '卒', x: 0, y: 4, w: 1, h: 1, color: 'bg-stone-500' },
+            { id: 'soldier4', type: 'soldier', name: '卒', x: 3, y: 4, w: 1, h: 1, color: 'bg-stone-500' },
+        ];
+
+        // --- 求解器邏輯 (A* Algorithm) ---
+
+        // 核心簽章
+        const getBoardSignature = (pieces) => {
+            const grid = Array(20).fill('.');
+            pieces.forEach(p => {
+                let code = '';
+                if (p.type === 'caocao') code = 'C';
+                else if (p.type === 'v-general') code = 'V';
+                else if (p.type === 'h-general') code = 'H';
+                else if (p.type === 'soldier') code = 'S';
+                
+                for (let i = 0; i < p.w; i++) {
+                    for (let j = 0; j < p.h; j++) {
+                        const idx = (p.y + j) * BOARD_WIDTH + (p.x + i);
+                        if (idx >= 0 && idx < 20) grid[idx] = code;
+                    }
+                }
+            });
+            return grid.join('');
+        };
+
+        const isSolvedForSolver = (signature) => signature[13] === 'C' && signature[14] === 'C';
+
+        // 獲取所有可能移動
+        const getPossibleMoves = (pieces) => {
+            const moves = [];
+            const occupied = new Set();
+            pieces.forEach(p => {
+                for(let i=0; i<p.w; i++) for(let j=0; j<p.h; j++) occupied.add(`${p.x+i},${p.y+j}`);
+            });
+            const directions = [
+                { dx: 0, dy: -1, type: 'up' },
+                { dx: 0, dy: 1, type: 'down' },
+                { dx: -1, dy: 0, type: 'left' },
+                { dx: 1, dy: 0, type: 'right' },
+            ];
+            pieces.forEach((p, index) => {
+                directions.forEach(dir => {
+                    let canMove = true;
+                    for(let i=0; i<p.w; i++) {
+                        for(let j=0; j<p.h; j++) {
+                            const tx = p.x + i + dir.dx;
+                            const ty = p.y + j + dir.dy;
+                            if (tx < 0 || tx >= BOARD_WIDTH || ty < 0 || ty >= BOARD_HEIGHT) { canMove = false; break; }
+                            const key = `${tx},${ty}`;
+                            if (occupied.has(key)) {
+                                let isSelf = false;
+                                for(let si=0; si<p.w; si++) for(let sj=0; sj<p.h; sj++) if ((p.x+si) === tx && (p.y+sj) === ty) isSelf = true;
+                                if (!isSelf) { canMove = false; break; }
+                            }
+                        }
+                        if (!canMove) break;
+                    }
+                    if (canMove) moves.push({ pieceIndex: index, dx: dir.dx, dy: dir.dy, type: dir.type });
+                });
+            });
+            return moves;
+        };
+
+        // 簡單優先佇列
+        class PriorityQueue {
+            constructor() { this.items = []; }
+            enqueue(element, priority) {
+                const node = { element, priority };
+                let added = false;
+                for (let i = 0; i < this.items.length; i++) {
+                    if (node.priority < this.items[i].priority) {
+                        this.items.splice(i, 0, node);
+                        added = true;
+                        break;
+                    }
+                }
+                if (!added) this.items.push(node);
+            }
+            dequeue() { return this.items.shift(); }
+            isEmpty() { return this.items.length === 0; }
+        }
+
+        // 啟發函數：曼哈頓距離 (曹操到 (1,3) 的距離)
+        const heuristic = (pieces) => {
+            const caocao = pieces.find(p => p.type === 'caocao');
+            // 目標是 (1,3)，因為曹操是 2x2，座標是左上角
+            // 當曹操在 (1,3) 時，佔據 (1,3), (2,3), (1,4), (2,4) -> 勝利
+            return Math.abs(caocao.x - 1) + Math.abs(caocao.y - 3);
+        };
+
+        // A* 求解器
+        const solvePuzzleAStar = (initialPieces) => {
+            const pq = new PriorityQueue();
+            const startSig = getBoardSignature(initialPieces);
+            
+            if (isSolvedForSolver(startSig)) return [];
+
+            const startNode = {
+                pieces: initialPieces,
+                signature: startSig,
+                g: 0, // cost so far
+                h: heuristic(initialPieces),
+                parent: null,
+                move: null
+            };
+
+            pq.enqueue(startNode, startNode.g + startNode.h);
+            const visited = new Map();
+            visited.set(startSig, 0); // key: sig, value: g
+
+            let steps = 0;
+            const MAX_STEPS = 200000; // 增加最大搜尋步數
+
+            while (!pq.isEmpty()) {
+                steps++;
+                if (steps > MAX_STEPS) return null; // Timeout
+
+                const current = pq.dequeue().element;
+                
+                if (isSolvedForSolver(current.signature)) {
+                    // 回溯路徑
+                    const path = [];
+                    let currNode = current;
+                    while (currNode.parent) {
+                        path.unshift({ state: currNode.pieces, move: currNode.move });
+                        currNode = currNode.parent;
+                    }
+                    return path;
+                }
+
+                const moves = getPossibleMoves(current.pieces);
+                for (const move of moves) {
+                    const newPieces = current.pieces.map((p, idx) => idx === move.pieceIndex ? { ...p, x: p.x + move.dx, y: p.y + move.dy } : p);
+                    const newSig = getBoardSignature(newPieces);
+                    const newG = current.g + 1;
+
+                    if (!visited.has(newSig) || newG < visited.get(newSig)) {
+                        visited.set(newSig, newG);
+                        const newH = heuristic(newPieces);
+                        const newNode = {
+                            pieces: newPieces,
+                            signature: newSig,
+                            g: newG,
+                            h: newH,
+                            parent: current,
+                            move: move
+                        };
+                        // A* f = g + h
+                        pq.enqueue(newNode, newG + newH);
+                    }
+                }
+            }
+            return null;
+        };
+
+        // --- 元件區 ---
+        const ArrowIcon = ({ type, className }) => {
+            const paths = {
+                up: "M12 19V5M5 12l7-7 7 7",
+                down: "M12 5v14M5 12l7 7 7-7",
+                left: "M19 12H5M12 19l-7-7 7-7",
+                right: "M5 12h14M12 5l7 7-7 7"
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    <path d={paths[type]} />
+                </svg>
+            );
+        };
+
+        const HintBoard = ({ pieces, label, scale = 1, opacity = 1 }) => {
+            return (
+                <div className="flex flex-col items-center animate-slide-up" style={{ opacity }}>
+                    {label && <div className="text-xs text-stone-500 mb-1 font-bold">{label}</div>}
+                    <div 
+                        className="relative bg-stone-200 rounded overflow-hidden border-2 border-stone-400 shadow-md" 
+                        style={{ width: `${120 * scale}px`, height: `${165 * scale}px` }} 
+                    >
+                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[60px] h-[15px] border-l border-r border-dashed border-stone-400 z-0 bg-stone-100/50"></div>
+
+                        {pieces.map((p, i) => {
+                            let bgColor = "bg-stone-400"; 
+                            let ringColor = "";
+                            
+                            if (p.type === 'caocao') {
+                                bgColor = "bg-red-500";
+                                ringColor = "ring-2 ring-red-300";
+                            } else if (p.type === 'v-general') {
+                                bgColor = "bg-blue-400"; 
+                            } else if (p.type === 'h-general') {
+                                bgColor = "bg-green-500"; 
+                            }
+
+                            return (
+                                <div
+                                    key={i}
+                                    className={`absolute border border-white/40 rounded-sm ${bgColor} ${ringColor} ${p.type === 'caocao' ? 'z-10' : ''}`}
+                                    style={{
+                                        width: `${(p.w * 30 - 2) * scale}px`,
+                                        height: `${(p.h * 30 - 2) * scale}px`,
+                                        left: `${(p.x * 30 + 1) * scale}px`,
+                                        top: `${(p.y * 30 + 1) * scale}px`,
+                                    }}
+                                >
+                                    {p.type === 'caocao' && (
+                                        <div className="w-full h-full flex items-center justify-center text-white font-bold" style={{ fontSize: `${10 * scale}px` }}>曹操</div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        function HuarongDao() {
+            const [pieces, setPieces] = useState(INITIAL_LAYOUT);
+            const [gameStatus, setGameStatus] = useState('idle');
+            const [timeElapsed, setTimeElapsed] = useState(0);
+            const [stepCount, setStepCount] = useState(0);
+            const [showRules, setShowRules] = useState(false);
+            const [showGrid, setShowGrid] = useState(false);
+            
+            // 提示與操作狀態
+            const [isThinking, setIsThinking] = useState(false);
+            const [milestones, setMilestones] = useState([]); 
+            const [currentMilestoneIndex, setCurrentMilestoneIndex] = useState(0); 
+            const [hintError, setHintError] = useState('');
+            const [hintActive, setHintActive] = useState(false);
+            const [pendingMove, setPendingMove] = useState(null);
+
+            const timerRef = useRef(null);
+
+            useEffect(() => {
+                const caocao = pieces.find((p) => p.id === 'caocao');
+                if (caocao && caocao.x === 1 && caocao.y === 4) {
+                    if (gameStatus !== 'won') handleWin();
+                }
+            }, [pieces]);
+
+            useEffect(() => {
+                if (gameStatus === 'playing') {
+                    timerRef.current = setInterval(() => setTimeElapsed(p => p + 1), 1000);
+                } else {
+                    clearInterval(timerRef.current);
+                }
+                return () => clearInterval(timerRef.current);
+            }, [gameStatus]);
+
+            const handleWin = () => {
+                setGameStatus('won');
+                setHintActive(false);
+                setMilestones([]);
+                setPendingMove(null);
+                clearInterval(timerRef.current);
+            };
+
+            const resetGame = () => {
+                setPieces(JSON.parse(JSON.stringify(INITIAL_LAYOUT)));
+                setGameStatus('idle');
+                setTimeElapsed(0);
+                setStepCount(0);
+                setHintActive(false);
+                setMilestones([]);
+                setCurrentMilestoneIndex(0);
+                setHintError('');
+                setPendingMove(null);
+                clearInterval(timerRef.current);
+            };
+
+            const isOccupied = (x, y, currentPieceId, currentPieces) => {
+                if (x < 0 || x >= BOARD_WIDTH || y < 0) return true;
+                if (y >= 6) return true; 
+
+                for (let p of currentPieces) {
+                    if (p.id === currentPieceId) continue;
+                    for (let i = 0; i < p.w; i++) {
+                        for (let j = 0; j < p.h; j++) {
+                            if (p.x + i === x && p.y + j === y) return true;
+                        }
+                    }
+                }
+                return false;
+            };
+
+            const generateMilestones = () => {
+                setIsThinking(true);
+                setHintError('');
+                
+                setTimeout(() => {
+                    // 使用 A* 求解
+                    const fullPath = solvePuzzleAStar(pieces);
+                    
+                    if (!fullPath) {
+                        setHintError('計算超時或無解。');
+                        setIsThinking(false);
+                        return;
+                    }
+
+                    const steps = fullPath || [];
+                    const extractedMilestones = [];
+                    const startCaocao = pieces.find(p => p.type === 'caocao');
+                    let lastCaocaoPos = { x: startCaocao.x, y: startCaocao.y };
+                    let stepsSinceLastMilestone = 0;
+
+                    steps.forEach((step, index) => {
+                        const stepCaocao = step.state.find(p => p.type === 'caocao');
+                        const caocaoMoved = stepCaocao.x !== lastCaocaoPos.x || stepCaocao.y !== lastCaocaoPos.y;
+                        stepsSinceLastMilestone++;
+
+                        // 邏輯：曹操移動時紀錄，或者如果很久沒移動了(小兵在調度)也紀錄
+                        // 針對橫刀立馬，中間調度步驟很多，閾值設為 8
+                        if (caocaoMoved || stepsSinceLastMilestone >= 8 || index === steps.length - 1) {
+                            extractedMilestones.push(step.state);
+                            lastCaocaoPos = { x: stepCaocao.x, y: stepCaocao.y };
+                            stepsSinceLastMilestone = 0;
+                        }
+                    });
+
+                    // 確保勝利狀態被加入
+                    const lastState = extractedMilestones.length > 0 ? extractedMilestones[extractedMilestones.length - 1] : pieces;
+                    const finalCaocao = lastState.find(p => p.type === 'caocao');
+                    
+                    if (finalCaocao.x === 1 && finalCaocao.y === 3) {
+                        const victoryState = lastState.map(p => 
+                            p.type === 'caocao' ? { ...p, x: 1, y: 4 } : p
+                        );
+                        // 檢查最後一個是不是已經是 victoryState，避免重複
+                        if (extractedMilestones.length === 0 || getBoardSignature(extractedMilestones[extractedMilestones.length - 1]) !== getBoardSignature(victoryState)) {
+                            extractedMilestones.push(victoryState);
+                        }
+                    }
+
+                    if (extractedMilestones.length > 0) {
+                        setMilestones(extractedMilestones);
+                        setCurrentMilestoneIndex(0);
+                        setHintActive(true);
+                    }
+                    setIsThinking(false);
+                }, 100); // 延遲執行以避免卡住 UI
+            };
+
+            const checkMilestoneAchieved = (currentPieces) => {
+                if (!hintActive || milestones.length === 0) return;
+                if (currentMilestoneIndex >= milestones.length) return;
+
+                const targetState = milestones[currentMilestoneIndex];
+                const currentSig = getBoardSignature(currentPieces);
+                const targetSig = getBoardSignature(targetState);
+                
+                // 檢查曹操Y座標，如果已經更接近出口，可能使用者跳過了某些步驟
+                const currentCaocao = currentPieces.find(p => p.type === 'caocao');
+                const targetCaocao = targetState.find(p => p.type === 'caocao');
+
+                if (currentSig === targetSig) {
+                    if (currentMilestoneIndex < milestones.length - 1) {
+                        setCurrentMilestoneIndex(prev => prev + 1);
+                    }
+                }
+            };
+
+            const handleMoveResult = (newPieces) => {
+                checkMilestoneAchieved(newPieces);
+            };
+
+            const handlePieceClick = (piece) => {
+                if (gameStatus === 'won') return;
+
+                if (pendingMove && pendingMove.pieceId === piece.id) {
+                    setPendingMove(null);
+                    return;
+                }
+                setPendingMove(null);
+
+                if (gameStatus === 'idle') setGameStatus('playing');
+                
+                const directions = [
+                    { dx: 0, dy: -1, type: 'up' }, 
+                    { dx: 0, dy: 1, type: 'down' }, 
+                    { dx: -1, dy: 0, type: 'left' }, 
+                    { dx: 1, dy: 0, type: 'right' }
+                ];
+                
+                const validMoves = directions.filter(dir => canMove(piece, dir.dx, dir.dy));
+                
+                if (validMoves.length === 1) {
+                    movePiece(piece.id, validMoves[0].dx, validMoves[0].dy);
+                } else if (validMoves.length > 1) {
+                    setPendingMove({ pieceId: piece.id, moves: validMoves });
+                }
+            };
+
+            const canMove = (piece, dx, dy) => {
+                if (piece.type === 'caocao') {
+                    if (piece.x === 1 && piece.y === 3 && dx === 0 && dy === 1) {
+                        return !isOccupied(1, 4, piece.id, pieces) && !isOccupied(2, 4, piece.id, pieces);
+                    }
+                }
+
+                for (let i = 0; i < piece.w; i++) {
+                    for (let j = 0; j < piece.h; j++) {
+                        const targetX = piece.x + i + dx;
+                        const targetY = piece.y + j + dy;
+                        if (targetX < 0 || targetX >= BOARD_WIDTH || targetY < 0 || targetY >= BOARD_HEIGHT) return false;
+                        if (isOccupied(targetX, targetY, piece.id, pieces)) return false;
+                    }
+                }
+                return true;
+            };
+
+            const movePiece = (id, dx, dy) => {
+                setPieces((prev) => {
+                    const newPieces = prev.map(p => p.id === id ? { ...p, x: p.x + dx, y: p.y + dy } : p);
+                    setTimeout(() => { handleMoveResult(newPieces); }, 0);
+                    return newPieces;
+                });
+                setStepCount(prev => prev + 1);
+                setPendingMove(null);
+            };
+
+            return (
+                <div className="min-h-screen bg-stone-100 flex flex-col items-center justify-center font-sans p-4 select-none relative">
+                    
+                    {/* 右上角按鈕 */}
+                    <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-50 max-w-[90%]">
+                        <button 
+                            onClick={() => setShowGrid(!showGrid)} 
+                            className={`py-2 px-4 rounded-full shadow transition-colors flex items-center gap-1 text-sm font-bold ${showGrid ? 'bg-blue-600 text-white' : 'bg-stone-200 text-stone-700'}`}
+                        >
+                            {showGrid ? '隱藏座標' : '顯示座標'}
+                        </button>
+
+                        <button 
+                            onClick={generateMilestones}
+                            disabled={isThinking || gameStatus === 'won'}
+                            className={`py-2 px-4 rounded-full shadow transition-colors flex items-center gap-1 text-sm font-bold ${hintActive ? 'bg-orange-500 text-white' : 'bg-emerald-600 text-white'} ${isThinking ? 'opacity-70 cursor-wait' : ''}`}
+                        >
+                            {isThinking ? '計算中...' : (hintActive ? '重新計算' : '提示')}
+                        </button>
+                        
+                        <button onClick={() => setShowRules(true)} className="bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold py-2 px-4 rounded-full shadow transition-colors flex items-center gap-1 text-sm">
+                            規則
+                        </button>
+                    </div>
+
+                    <header className="mb-6 text-center mt-12 md:mt-0">
+                        <h1 className="text-4xl font-bold text-stone-800 mb-2 tracking-widest font-serif">三國華容道</h1>
+                        <p className="text-stone-600 text-sm">點擊棋子移動，助曹操從下方「完全逃脫」</p>
+                    </header>
+
+                    <div className="flex gap-8 mb-4 bg-white px-6 py-3 rounded-xl shadow-sm border border-stone-200">
+                        <div className="text-center">
+                            <div className="text-xs text-stone-500 uppercase">時間</div>
+                            <div className="text-2xl font-mono font-bold text-stone-700">{timeElapsed}s</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-xs text-stone-500 uppercase">步數</div>
+                            <div className="text-2xl font-mono font-bold text-stone-700">{stepCount}</div>
+                        </div>
+                    </div>
+
+                    {hintError && (
+                        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded text-sm animate-bounce-in">
+                            {hintError}
+                        </div>
+                    )}
+
+                    <div className="flex flex-col md:flex-row gap-6 items-start justify-center relative w-full max-w-4xl px-4">
+                        
+                        {/* 左側：棋盤 */}
+                        <div className="relative p-2 bg-stone-800 rounded-lg shadow-2xl border-4 border-stone-700 z-10 mx-auto">
+                            <div className="relative bg-stone-300 rounded overflow-hidden" style={{ width: '320px', height: '400px' }}>
+                                
+                                {/* 網格 */}
+                                {showGrid && (
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {[1, 2, 3].map(i => <div key={`v-${i}`} className="absolute top-0 bottom-0 border-l border-stone-500/30" style={{ left: `${i * 80}px` }}></div>)}
+                                        {[1, 2, 3, 4].map(i => <div key={`h-${i}`} className="absolute left-0 right-0 border-t border-stone-500/30" style={{ top: `${i * 80}px` }}></div>)}
+                                        {Array.from({ length: 4 }).map((_, x) =>
+                                            Array.from({ length: 5 }).map((_, y) => (
+                                                <div key={`${x}-${y}`} className="absolute text-[10px] text-stone-500/60 font-mono font-bold" style={{ left: x * 80 + 2, top: y * 80 + 2 }}>({x},{y})</div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 出口標示 */}
+                                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-40 h-1 bg-red-500/30 z-0"></div>
+
+                                {pieces.map((p) => (
+                                    <div
+                                        key={p.id}
+                                        onClick={() => handlePieceClick(p)}
+                                        className={`
+                                            absolute transition-all duration-200 ease-in-out cursor-pointer z-10
+                                            flex items-center justify-center
+                                            border-2 border-stone-800/20 rounded-md
+                                            shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_6px_rgba(0,0,0,0.3)]
+                                            hover:brightness-110 active:scale-[0.98]
+                                            ${p.color}
+                                        `}
+                                        style={{
+                                            width: `${p.w * 80 - 8}px`,
+                                            height: `${p.h * 80 - 8}px`,
+                                            left: `${p.x * 80 + 4}px`,
+                                            top: `${p.y * 80 + 4}px`,
+                                        }}
+                                    >
+                                        <div className="text-center relative w-full h-full flex items-center justify-center">
+                                            <div className="absolute inset-1 border border-black/10 rounded-sm pointer-events-none"></div>
+                                            <span className={`font-serif font-bold text-white drop-shadow-md ${p.w === 2 && p.h === 2 ? 'text-3xl' : 'text-xl'}`}>
+                                                {p.name}
+                                            </span>
+                                            {p.type === 'caocao' && <div className="absolute bottom-2 text-[10px] text-red-100 opacity-80">魏王</div>}
+
+                                            {/* 多方向箭頭 (操作用) */}
+                                            {pendingMove && pendingMove.pieceId === p.id && (
+                                                <div className="absolute inset-0 bg-black/60 z-50 rounded flex items-center justify-center animate-fade-in cursor-default" onClick={(e) => e.stopPropagation()}>
+                                                    {pendingMove.moves.map((move, idx) => {
+                                                        let positionClass = "";
+                                                        if (move.type === 'up') positionClass = "top-1 left-0 w-full flex justify-center";
+                                                        if (move.type === 'down') positionClass = "bottom-1 left-0 w-full flex justify-center";
+                                                        if (move.type === 'left') positionClass = "left-1 top-0 h-full flex items-center";
+                                                        if (move.type === 'right') positionClass = "right-1 top-0 h-full flex items-center";
+                                                        return (
+                                                            <div key={idx} className={`absolute ${positionClass} pointer-events-none`}>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); movePiece(p.id, move.dx, move.dy); }}
+                                                                    className="pointer-events-auto p-1 bg-white/95 rounded-full hover:bg-white text-stone-800 shadow-lg hover:scale-110 transition-transform animate-pulse-arrow border-2 border-stone-200"
+                                                                >
+                                                                    <ArrowIcon type={move.type} className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-40 h-2 bg-stone-300 rounded-b border-l-4 border-r-4 border-stone-700"></div>
+                        </div>
+
+                        {/* 右側：提示面板 */}
+                        {hintActive && milestones.length > 0 && (
+                            <div className="flex flex-col items-center bg-white p-4 rounded-xl shadow-xl border border-stone-200 animate-fade-in w-full md:w-auto">
+                                <h3 className="text-lg font-bold text-stone-800 mb-2 font-serif border-b pb-1 w-full text-center">
+                                    下一步目標 ({currentMilestoneIndex + 1}/{milestones.length})
+                                </h3>
+                                
+                                <div className="mb-4">
+                                    <HintBoard pieces={milestones[currentMilestoneIndex]} label="" scale={1.2} />
+                                </div>
+                                
+                                <div className="text-sm text-stone-600 mb-2 text-center max-w-[200px]">
+                                    請模仿上方圖示排列棋子。<br/>
+                                    <span className="text-xs text-stone-400 block mt-1">(形狀吻合即可，自動跳轉)</span>
+                                </div>
+
+                                <div className="w-full bg-stone-200 rounded-full h-2 mb-2">
+                                    <div 
+                                        className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                                        style={{ width: `${((currentMilestoneIndex + 1) / milestones.length) * 100}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <button onClick={resetGame} className="mt-8 px-8 py-3 bg-stone-700 text-stone-100 rounded-full font-bold shadow-lg hover:bg-stone-600 transition-colors flex items-center gap-2">
+                        重新開始
+                    </button>
+
+                    {showRules && (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+                            <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full animate-bounce-in relative">
+                                <button onClick={() => setShowRules(false)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-700">✕</button>
+                                <h2 className="text-2xl font-bold text-stone-800 mb-4 text-center">操作說明</h2>
+                                <div className="space-y-4 text-stone-600 text-sm">
+                                    <p>1. 目標：將<strong>曹操</strong>完全移出底部 (到達 y=4)。</p>
+                                    <p>2. 提示：點擊按鈕後，右側會顯示「目標快照」。</p>
+                                    <p>3. 自動導航：您只需將棋盤擺成快照的樣子，系統會自動顯示下一張圖。</p>
+                                    <p>4. 選擇移動：若棋子有多個方向可走，會出現<strong>黑色箭頭</strong>供您選擇。</p>
+                                </div>
+                                <div className="mt-6 text-center"><button onClick={() => setShowRules(false)} className="px-6 py-2 bg-stone-700 text-white rounded-lg">關閉</button></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameStatus === 'won' && (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+                             <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center border-4 border-yellow-500 animate-bounce-in">
+                                <div className="text-5xl mb-4">🎉</div>
+                                <h2 className="text-3xl font-bold text-stone-800 mb-2">突圍成功！</h2>
+                                <p className="text-stone-600 mb-6">耗時：{timeElapsed}秒 / 步數：{stepCount}</p>
+                                <button onClick={resetGame} className="w-full py-3 bg-red-600 text-white rounded-lg font-bold">再玩一局</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HuarongDao />);
+    </script>
+</body>
+</html>
