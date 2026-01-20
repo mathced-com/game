@@ -11,7 +11,7 @@
             --card-bg: #1e1e2e;
             --text-main: #ffffff;
             --accent-glow: #00ffcc; /* 預設：霓虹青 */
-            --accent-pink: #ff0099; /* Blokus：霓虹粉 */
+            --accent-pink: #ff0099; /* 格格不入：霓虹粉 */
             --accent-orange: #ff9900; /* 五子棋：霓虹橘 */
             --accent-red: #ff3333;    /* 華容道：赤紅 */
             --accent-purple: #d500f9; /* 數字方塊：霓虹紫 */
@@ -107,7 +107,6 @@
             box-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
         }
 
-        /* 新增：數字方塊配色 */
         .game-card.style-puzzle:hover {
             border-color: var(--accent-purple);
             box-shadow: 0 0 20px rgba(213, 0, 249, 0.4);
@@ -166,13 +165,13 @@
         
         <a href="blokus-2player_v2.html" target="_blank" rel="noopener noreferrer" class="game-card style-blokus">
             <span class="icon">🟦🟥</span>
-            <span class="game-title">Blokus 雙人對決</span>
+            <span class="game-title">格格不入 雙人對決</span>
             <span class="game-desc">經典俄羅斯方塊棋盤策略<br>(2 Player Edition)</span>
         </a>
 
         <a href="blokus-4player_v2.html" target="_blank" rel="noopener noreferrer" class="game-card style-blokus">
             <span class="icon">🟦🟨🟥🟩</span>
-            <span class="game-title">Blokus 四人大亂鬥</span>
+            <span class="game-title">格格不入 四人大亂鬥</span>
             <span class="game-desc">多人混戰策略遊戲<br>(4 Player Edition)</span>
         </a>
 
@@ -206,5 +205,42 @@
         &copy; 2026 Game Center. Created by mathced.
     </footer>
 
+    <script>
+        // 您提供的 GAS 網址已設定於此
+        const TRACKING_URL = "https://script.google.com/macros/s/AKfycbyUceK5jxOPxegHWwBGQH1BUPcFXXxqA7BGjKftaBsV0wpUvghvfxRT62V46kBvh9dAlA/exec"; 
+
+        // 選取所有帶有 game-card 類別的連結
+        const cards = document.querySelectorAll('.game-card');
+
+        cards.forEach(card => {
+            // 排除 coming-soon 區塊，避免誤觸
+            if(card.classList.contains('coming-soon')) return;
+
+            card.addEventListener('click', function(e) {
+                // 1. 抓取該卡片內的遊戲標題文字
+                const titleElement = this.querySelector('.game-title');
+                const gameName = titleElement ? titleElement.innerText : "未知遊戲";
+
+                // 2. 準備要傳送的資料
+                const payload = {
+                    gameName: gameName
+                };
+
+                // 3. 使用 fetch 發送資料給 GAS (使用 no-cors 模式避免跨域錯誤)
+                fetch(TRACKING_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify(payload)
+                }).then(() => {
+                    console.log("統計已發送: " + gameName);
+                }).catch(err => {
+                    console.error("統計發送失敗", err);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
