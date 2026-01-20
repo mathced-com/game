@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Center | 遊戲中心</title>
+    <title>宜德老師數位桌遊天地</title>
     <style>
         /* --- 基礎設定 --- */
         :root {
@@ -20,7 +20,7 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Microsoft JhengHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* 加入微軟正黑體優化中文顯示 */
             background-color: var(--bg-color);
             background-image: 
                 linear-gradient(rgba(18, 18, 18, 0.9), rgba(18, 18, 18, 0.9)),
@@ -42,14 +42,15 @@
         }
 
         h1 {
-            font-size: 3rem;
+            font-size: 3rem; /* 若中文標題過長換行，可將此數值改為 2.5rem */
             margin: 0;
-            text-transform: uppercase;
-            letter-spacing: 5px;
+            /* text-transform: uppercase; 中文不需要大寫轉換 */
+            letter-spacing: 2px; /* 中文字距稍微縮小一點較為美觀 */
             text-shadow: 0 0 10px var(--accent-glow);
             background: linear-gradient(90deg, var(--accent-glow), var(--accent-pink));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            line-height: 1.2;
         }
 
         p.subtitle {
@@ -81,7 +82,7 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            display: block; /* 確保 a 標籤填滿 */
+            display: block;
         }
 
         .game-card:hover {
@@ -106,15 +107,14 @@
             box-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
         }
 
-        /* --- 持續新增中區塊樣式 (新) --- */
+        /* --- 持續新增中區塊樣式 --- */
         .game-card.coming-soon {
-            border: 2px dashed #444; /* 虛線框 */
-            background-color: rgba(30, 30, 46, 0.5); /* 降低背景不透明度 */
+            border: 2px dashed #444;
+            background-color: rgba(30, 30, 46, 0.5);
             color: var(--accent-gray);
-            cursor: default; /* 滑鼠不會變手指 */
+            cursor: default;
         }
 
-        /* 覆寫 hover 效果：保持不動，不發光 */
         .game-card.coming-soon:hover {
             transform: none;
             border-color: #666;
@@ -152,7 +152,7 @@
 <body>
 
     <header>
-        <h1>ARCADE HUB</h1>
+        <h1>宜德老師數位桌遊天地</h1>
         <p class="subtitle">選擇你的遊戲並開始挑戰</p>
     </header>
 
@@ -191,7 +191,7 @@
     </div>
 
     <footer>
-        &copy; 2026 Game Center. Created with Code.
+        &copy; 2026 Game Center. Created by mathced.
     </footer>
 
 </body>
