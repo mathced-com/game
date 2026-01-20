@@ -14,6 +14,7 @@
             --accent-pink: #ff0099; /* Blokus：霓虹粉 */
             --accent-orange: #ff9900; /* 五子棋：霓虹橘 */
             --accent-red: #ff3333;    /* 華容道：赤紅 */
+            --accent-gray: #888888;   /* 待新增：灰色 */
         }
 
         body {
@@ -80,6 +81,7 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: block; /* 確保 a 標籤填滿 */
         }
 
         .game-card:hover {
@@ -99,10 +101,24 @@
             box-shadow: 0 0 20px rgba(255, 153, 0, 0.4);
         }
 
-        /* 新增：華容道配色 */
         .game-card.style-sango:hover {
             border-color: var(--accent-red);
             box-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
+        }
+
+        /* --- 持續新增中區塊樣式 (新) --- */
+        .game-card.coming-soon {
+            border: 2px dashed #444; /* 虛線框 */
+            background-color: rgba(30, 30, 46, 0.5); /* 降低背景不透明度 */
+            color: var(--accent-gray);
+            cursor: default; /* 滑鼠不會變手指 */
+        }
+
+        /* 覆寫 hover 效果：保持不動，不發光 */
+        .game-card.coming-soon:hover {
+            transform: none;
+            border-color: #666;
+            box-shadow: none;
         }
 
         .icon {
@@ -136,7 +152,7 @@
 <body>
 
     <header>
-        <h1>宜德老師數位桌遊區</h1>
+        <h1>ARCADE HUB</h1>
         <p class="subtitle">選擇你的遊戲並開始挑戰</p>
     </header>
 
@@ -144,13 +160,13 @@
         
         <a href="blokus-2player_v2.html" target="_blank" rel="noopener noreferrer" class="game-card style-blokus">
             <span class="icon">🟦🟥</span>
-            <span class="game-title">格格不入 雙人對決</span>
+            <span class="game-title">Blokus 雙人對決</span>
             <span class="game-desc">經典俄羅斯方塊棋盤策略<br>(2 Player Edition)</span>
         </a>
 
         <a href="blokus-4player_v2.html" target="_blank" rel="noopener noreferrer" class="game-card style-blokus">
             <span class="icon">🟦🟨🟥🟩</span>
-            <span class="game-title">格格不入 四人大亂鬥</span>
+            <span class="game-title">Blokus 四人大亂鬥</span>
             <span class="game-desc">多人混戰策略遊戲<br>(4 Player Edition)</span>
         </a>
 
@@ -166,13 +182,17 @@
             <span class="game-desc">經典滑塊益智解謎<br>(Klotski Puzzle)</span>
         </a>
 
+        <div class="game-card coming-soon">
+            <span class="icon">🚧🚀</span>
+            <span class="game-title">持續新增中...</span>
+            <span class="game-desc">更多精彩遊戲開發中<br>(More Coming Soon)</span>
+        </div>
+
     </div>
 
     <footer>
-        &copy; 2026 Game Center. Created by mathced.
+        &copy; 2026 Game Center. Created with Code.
     </footer>
 
 </body>
 </html>
-
-
