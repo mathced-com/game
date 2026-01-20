@@ -14,6 +14,7 @@
             --accent-pink: #ff0099; /* Blokus：霓虹粉 */
             --accent-orange: #ff9900; /* 五子棋：霓虹橘 */
             --accent-red: #ff3333;    /* 華容道：赤紅 */
+            --accent-purple: #d500f9; /* 數字方塊：霓虹紫 */
             --accent-gray: #888888;   /* 待新增：灰色 */
         }
 
@@ -106,6 +107,12 @@
             box-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
         }
 
+        /* 新增：數字方塊配色 */
+        .game-card.style-puzzle:hover {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 20px rgba(213, 0, 249, 0.4);
+        }
+
         /* --- 持續新增中區塊樣式 --- */
         .game-card.coming-soon {
             border: 2px dashed #444;
@@ -179,6 +186,12 @@
             <span class="icon">🧩⚔️</span>
             <span class="game-title">三國華容道</span>
             <span class="game-desc">經典滑塊益智解謎<br>(Klotski Puzzle)</span>
+        </a>
+
+        <a href="https://mathced-com.github.io/game/num_puzzle.html" target="_blank" rel="noopener noreferrer" class="game-card style-puzzle">
+            <span class="icon">🔢🔲</span>
+            <span class="game-title">數字方塊</span>
+            <span class="game-desc">經典數字排列益智遊戲<br>(Number Slide Puzzle)</span>
         </a>
 
         <div class="game-card coming-soon">
