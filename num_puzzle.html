@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極限數字方塊 - 冠軍挑戰</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
+        .tile { transition: transform 0.2s ease-in-out, background-color 0.2s; cursor: pointer; user-select: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tile:active { transform: scale(0.95); }
+        
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #6366f1;
+            width: 24px; height: 24px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .grid-4 { font-size: 1.5rem; }
+        .grid-5 { font-size: 1.25rem; }
+        .grid-6 { font-size: 1rem; }
+        .grid-8 { font-size: 0.8rem; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header (修改部分：使用 Grid 佈局以達成完美置中) -->
+    <header class="w-full bg-white shadow-md p-4 grid grid-cols-3 items-center z-10 shrink-0">
+        <!-- 左側佔位符 (保持空白以平衡右側按鈕) -->
+        <div></div>
+
+        <!-- 中間標題 -->
+        <h1 class="text-xl font-bold text-slate-700 tracking-wider text-center whitespace-nowrap">數字方塊</h1>
+        
+        <!-- 右側按鈕區域 -->
+        <div class="flex justify-end gap-2">
+            <button onclick="toggleRules()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 px-3 py-1.5 rounded-full text-sm font-bold transition whitespace-nowrap">
+                規則
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center p-4 relative w-full max-w-2xl mx-auto">
+        
+        <!-- Menu Screen -->
+        <div id="menu-screen" class="w-full text-center space-y-6 animate-fade-in">
+            <div class="space-y-2">
+                <h2 class="text-3xl font-bold text-slate-800">挑戰排行榜</h2>
+                <p class="text-slate-500">選擇難度，創造你的最佳紀錄</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                <button onclick="startGame(4)" class="p-5 bg-white rounded-xl shadow-lg hover:shadow-xl hover:border-indigo-500 border-2 border-transparent transition">
+                    <span class="block text-2xl font-bold text-indigo-600">4 x 4</span>
+                </button>
+                <button onclick="startGame(5)" class="p-5 bg-white rounded-xl shadow-lg hover:shadow-xl hover:border-emerald-500 border-2 border-transparent transition">
+                    <span class="block text-2xl font-bold text-emerald-600">5 x 5</span>
+                </button>
+                <button onclick="startGame(6)" class="p-5 bg-white rounded-xl shadow-lg hover:shadow-xl hover:border-amber-500 border-2 border-transparent transition">
+                    <span class="block text-2xl font-bold text-amber-600">6 x 6</span>
+                </button>
+                <button onclick="startGame(8)" class="p-5 bg-white rounded-xl shadow-lg hover:shadow-xl hover:border-rose-500 border-2 border-transparent transition">
+                    <span class="block text-2xl font-bold text-rose-600">8 x 8</span>
+                </button>
+            </div>
+
+            <button onclick="openLeaderboard(4)" class="mt-4 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center gap-2 mx-auto">
+                <span>🏆</span> 查看排行榜
+            </button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden flex-col items-center w-full h-full">
+            <div class="flex justify-between w-full max-w-md mb-4 bg-white p-3 rounded-lg shadow-sm border border-slate-100">
+                <div class="text-center">
+                    <span class="text-xs text-slate-400 uppercase font-bold">時間</span>
+                    <div id="timer-display" class="text-xl font-mono text-indigo-600 font-bold">00:00</div>
+                </div>
+                <div class="text-center">
+                    <span class="text-xs text-slate-400 uppercase font-bold">步數</span>
+                    <div id="moves-display" class="text-xl font-mono text-slate-700 font-bold">0</div>
+                </div>
+            </div>
+
+            <div class="relative w-full max-w-md aspect-square bg-slate-300 rounded-lg p-2 shadow-inner">
+                <div id="puzzle-board" class="w-full h-full grid gap-1 sm:gap-2"></div>
+            </div>
+
+            <button onclick="returnToMenu()" class="mt-6 text-slate-500 hover:text-slate-800 underline underline-offset-4 text-sm font-medium transition">
+                放棄並返回選單
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h3 class="text-xl font-bold text-slate-800 mb-4 border-b pb-2">📜 遊戲規則</h3>
+            <ul class="space-y-3 text-slate-600 text-sm mb-6 list-disc pl-4">
+                <li>將數字按順序排列 (1, 2, 3...)。</li>
+                <li>點擊相鄰方塊移動至空格。</li>
+                <li>盡快完成以登上排行榜！</li>
+            </ul>
+            <button onclick="toggleRules()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">我知道了</button>
+        </div>
+    </div>
+
+    <!-- Win Modal (Upload Score) -->
+    <div id="win-modal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-bounce-in">
+            <div class="text-5xl mb-2">🏆</div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-1">挑戰成功！</h3>
+            
+            <div class="bg-slate-50 rounded-lg p-3 mb-4 text-sm space-y-1">
+                <div class="flex justify-between"><span class="text-slate-400">難度</span><span id="win-difficulty" class="font-bold">4x4</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">時間</span><span id="win-time" class="font-bold text-indigo-600">00:00</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">步數</span><span id="win-moves" class="font-bold">0</span></div>
+            </div>
+
+            <!-- Upload Form -->
+            <div id="upload-section" class="mb-4">
+                <label class="block text-left text-xs font-bold text-slate-500 mb-1">輸入名字登上排行榜</label>
+                <div class="flex gap-2">
+                    <input type="text" id="player-name" placeholder="您的暱稱" maxlength="10" class="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <button onclick="submitScore()" id="submit-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition flex items-center justify-center min-w-[80px]">
+                        上傳
+                    </button>
+                </div>
+                <p id="upload-status" class="text-xs text-red-500 mt-1 h-4"></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-4">
+                <button onclick="returnToMenu()" class="bg-slate-200 text-slate-700 py-2 rounded-lg font-bold text-sm">回選單</button>
+                <button onclick="restartGame()" class="bg-indigo-100 text-indigo-700 py-2 rounded-lg font-bold text-sm">再玩一次</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">🏆 排行榜 <span id="lb-mode-display" class="text-indigo-600 text-sm bg-indigo-50 px-2 py-0.5 rounded">4x4</span></h3>
+                <button onclick="closeLeaderboard()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            
+            <!-- Difficulty Tabs -->
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
+                <button onclick="loadLeaderboard(4)" class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold whitespace-nowrap hover:bg-indigo-200">4x4</button>
+                <button onclick="loadLeaderboard(5)" class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold whitespace-nowrap hover:bg-emerald-200">5x5</button>
+                <button onclick="loadLeaderboard(6)" class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold whitespace-nowrap hover:bg-amber-200">6x6</button>
+                <button onclick="loadLeaderboard(8)" class="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold whitespace-nowrap hover:bg-rose-200">8x8</button>
+            </div>
+
+            <!-- List -->
+            <div id="leaderboard-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <!-- Content injected by JS -->
+                <div class="flex justify-center items-center h-40">
+                    <div class="loader"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        //  設定區：API 網址已設定完成
+        // ==========================================
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbySIjVGEiOfrU6jk_ylm865jKFZY9UrNe9DrnOdve4E2IZj-cbADMu_yQSMHQuJ2lfN/exec"; 
+        // ==========================================
+
+        let currentSize = 4;
+        let tiles = [];
+        let initialTiles = []; // 用於記錄初始盤面
+        let emptyIndex = -1;
+        let moves = 0;
+        let isPlaying = false;
+        let timerInterval;
+        let startTime;
+        let finalTimeMs = 0; // 紀錄最終毫秒數
+        let timerRunning = false;
+
+        const menuScreen = document.getElementById('menu-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const board = document.getElementById('puzzle-board');
+        const timerDisplay = document.getElementById('timer-display');
+        const movesDisplay = document.getElementById('moves-display');
+        const rulesModal = document.getElementById('rules-modal');
+        const winModal = document.getElementById('win-modal');
+        const lbModal = document.getElementById('leaderboard-modal');
+        const uploadStatus = document.getElementById('upload-status');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // --- 核心遊戲邏輯 ---
+
+        function startGame(size) {
+            currentSize = size;
+            menuScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+            
+            board.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            board.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+            
+            restartGame();
+        }
+
+        function restartGame() {
+            winModal.classList.add('hidden');
+            stopTimer();
+            moves = 0;
+            finalTimeMs = 0;
+            movesDisplay.innerText = '0';
+            timerDisplay.innerText = '00:00';
+            isPlaying = true;
+            timerRunning = false;
+            
+            // 重置上傳狀態
+            uploadStatus.innerText = "";
+            submitBtn.disabled = false;
+            submitBtn.innerText = "上傳";
+            submitBtn.classList.remove("bg-gray-400");
+            submitBtn.classList.add("bg-indigo-600");
+
+            generateSolvableBoard();
+            renderBoard();
+        }
+
+        function generateSolvableBoard() {
+            const totalTiles = currentSize * currentSize;
+            tiles = Array.from({length: totalTiles}, (_, i) => (i + 1) % totalTiles);
+            
+            for (let i = tiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+            }
+
+            if (!isSolvable(tiles)) {
+                let idx1 = 0, idx2 = 1;
+                if (tiles[idx1] === 0) idx1 = 2;
+                if (tiles[idx2] === 0) idx2 = 2;
+                [tiles[idx1], tiles[idx2]] = [tiles[idx2], tiles[idx1]];
+            }
+
+            emptyIndex = tiles.indexOf(0);
+            initialTiles = [...tiles]; // 複製一份作為初始記錄
+        }
+
+        function isSolvable(arr) {
+            let inversions = 0;
+            const puzzleArr = arr.filter(n => n !== 0);
+            for (let i = 0; i < puzzleArr.length; i++) {
+                for (let j = i + 1; j < puzzleArr.length; j++) {
+                    if (puzzleArr[i] > puzzleArr[j]) inversions++;
+                }
+            }
+            const width = currentSize;
+            const emptyRowFromBottom = width - Math.floor(arr.indexOf(0) / width);
+
+            if (width % 2 !== 0) return inversions % 2 === 0;
+            else return (emptyRowFromBottom % 2 !== 0) ? (inversions % 2 === 0) : (inversions % 2 !== 0);
+        }
+
+        function renderBoard() {
+            board.innerHTML = '';
+            let fontSizeClass = 'text-2xl sm:text-3xl';
+            if (currentSize === 5) fontSizeClass = 'text-xl sm:text-2xl';
+            if (currentSize === 6) fontSizeClass = 'text-lg sm:text-xl';
+            if (currentSize === 8) fontSizeClass = 'text-sm sm:text-lg font-normal';
+
+            tiles.forEach((num, index) => {
+                const tile = document.createElement('div');
+                if (num === 0) {
+                    tile.className = 'w-full h-full rounded-md';
+                } else {
+                    tile.className = `tile w-full h-full bg-white text-indigo-600 font-bold rounded-md flex items-center justify-center shadow-sm border-b-4 border-indigo-100 hover:border-indigo-200 ${fontSizeClass}`;
+                    if (num === index + 1) tile.classList.add('text-emerald-600', 'border-emerald-100');
+                    tile.innerText = num;
+                    tile.onclick = () => moveTile(index);
+                }
+                board.appendChild(tile);
+            });
+        }
+
+        function moveTile(index) {
+            if (!isPlaying) return;
+            const x = index % currentSize;
+            const y = Math.floor(index / currentSize);
+            const emptyX = emptyIndex % currentSize;
+            const emptyY = Math.floor(emptyIndex / currentSize);
+            const distance = Math.abs(x - emptyX) + Math.abs(y - emptyY);
+
+            if (distance === 1) {
+                if (!timerRunning) startTimer();
+                [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+                emptyIndex = index;
+                moves++;
+                movesDisplay.innerText = moves;
+                renderBoard();
+                checkWin();
+            }
+        }
+
+        function checkWin() {
+            const isSolved = tiles.every((val, index) => {
+                if (index === tiles.length - 1) return val === 0;
+                return val === index + 1;
+            });
+
+            if (isSolved) {
+                isPlaying = false;
+                stopTimer();
+                launchConfetti();
+                
+                document.getElementById('win-difficulty').innerText = `${currentSize} x ${currentSize}`;
+                document.getElementById('win-time').innerText = timerDisplay.innerText;
+                document.getElementById('win-moves').innerText = moves;
+                
+                setTimeout(() => winModal.classList.remove('hidden'), 500);
+            }
+        }
+
+        // --- 計時與裝置判斷 ---
+        
+        function startTimer() {
+            timerRunning = true;
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 100);
+        }
+
+        function stopTimer() {
+            timerRunning = false;
+            clearInterval(timerInterval);
+        }
+
+        function updateTimer() {
+            const now = Date.now();
+            finalTimeMs = now - startTime;
+            const totalSeconds = Math.floor(finalTimeMs / 1000);
+            const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+            const seconds = String(totalSeconds % 60).padStart(2, '0');
+            timerDisplay.innerText = `${minutes}:${seconds}`;
+        }
+
+        function getDeviceType() {
+            const ua = navigator.userAgent;
+            if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "Tablet";
+            if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated/.test(ua)) return "Mobile";
+            return "Desktop";
+        }
+
+        // --- 排行榜 API 整合 ---
+
+        async function submitScore() {
+            const nameInput = document.getElementById('player-name');
+            const name = nameInput.value.trim();
+            if (!name) {
+                uploadStatus.innerText = "請輸入名字";
+                return;
+            }
+
+            // 鎖定按鈕
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loader w-4 h-4 border-2"></div>';
+            submitBtn.classList.replace("bg-indigo-600", "bg-gray-400");
+
+            const payload = {
+                game_mode: currentSize,
+                player_name: name,
+                time_ms: finalTimeMs,
+                moves: moves,
+                device_type: getDeviceType(),
+                initial_board: initialTiles
+            };
+
+            try {
+                // 使用 fetch
+                await fetch(GAS_API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // 關鍵：忽略 CORS 錯誤 (Google Scripts 限制)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // 成功後 (因 no-cors 無法讀取回應，假設發送成功)
+                uploadStatus.className = "text-xs text-green-600 mt-1 h-4";
+                uploadStatus.innerText = "上傳成功！";
+                setTimeout(() => {
+                    winModal.classList.add('hidden');
+                    openLeaderboard(currentSize);
+                }, 1000);
+
+            } catch (err) {
+                console.error(err);
+                uploadStatus.className = "text-xs text-red-500 mt-1 h-4";
+                uploadStatus.innerText = "上傳失敗，請稍後再試";
+                submitBtn.disabled = false;
+                submitBtn.innerText = "上傳";
+                submitBtn.classList.replace("bg-gray-400", "bg-indigo-600");
+            }
+        }
+
+        async function loadLeaderboard(mode) {
+            const listDiv = document.getElementById('leaderboard-list');
+            const modeDisplay = document.getElementById('lb-mode-display');
+            
+            modeDisplay.innerText = `${mode}x${mode}`;
+            listDiv.innerHTML = '<div class="flex justify-center items-center h-40"><div class="loader"></div></div>';
+
+            try {
+                const response = await fetch(`${GAS_API_URL}?mode=${mode}`);
+                const data = await response.json();
+
+                listDiv.innerHTML = "";
+                if (data.length === 0) {
+                    listDiv.innerHTML = '<div class="text-center text-slate-400 py-8">目前還沒有紀錄，快來當第一名！</div>';
+                    return;
+                }
+
+                data.forEach((item, index) => {
+                    const rankColor = index === 0 ? 'text-yellow-500' : index === 1 ? 'text-slate-400' : index === 2 ? 'text-amber-600' : 'text-slate-600';
+                    const row = document.createElement('div');
+                    row.className = "flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100";
+                    row.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-lg w-6 text-center ${rankColor}">#${index + 1}</span>
+                            <div>
+                                <div class="font-bold text-slate-700 text-sm">${escapeHtml(item.name)}</div>
+                                <div class="text-xs text-slate-400">${item.date}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-mono font-bold text-indigo-600">${item.time}</div>
+                            <div class="text-xs text-slate-500">${item.moves} 步</div>
+                        </div>
+                    `;
+                    listDiv.appendChild(row);
+                });
+
+            } catch (err) {
+                console.error(err);
+                listDiv.innerHTML = '<div class="text-center text-red-400 py-8 text-sm">讀取失敗<br>請確認 API URL 是否正確或權限為「所有人」</div>';
+            }
+        }
+
+        // --- 介面導航 ---
+        function returnToMenu() {
+            stopTimer();
+            gameScreen.classList.add('hidden');
+            gameScreen.classList.remove('flex');
+            winModal.classList.add('hidden');
+            menuScreen.classList.remove('hidden');
+        }
+
+        function toggleRules() {
+            rulesModal.classList.toggle('hidden');
+        }
+        
+        function openLeaderboard(mode) {
+            lbModal.classList.remove('hidden');
+            loadLeaderboard(mode || 4);
+        }
+
+        function closeLeaderboard() {
+            lbModal.classList.add('hidden');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // 外部點擊關閉
+        rulesModal.onclick = (e) => { if (e.target === rulesModal) toggleRules(); };
+        lbModal.onclick = (e) => { if (e.target === lbModal) closeLeaderboard(); };
+
+        // Confetti
+        function launchConfetti() {
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        }
+    </script>
+</body>
+</html>
