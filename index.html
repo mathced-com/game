@@ -82,7 +82,10 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            display: block;
+            display: flex;
+            flex-direction: column; /* 改為垂直排列 */
+            align-items: center;
+            justify-content: center;
         }
 
         .game-card:hover {
@@ -143,6 +146,18 @@
             font-size: 0.9rem;
             color: #aaa;
             display: block;
+            margin-bottom: 15px; /* 增加底部距離給統計數字 */
+        }
+
+        /* --- 新增：點擊數統計樣式 --- */
+        .click-stat {
+            font-size: 0.85rem;
+            color: #eee;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: auto; /* 將統計推到底部 */
         }
 
         /* --- 頁尾 --- */
@@ -167,30 +182,35 @@
             <span class="icon">🟦🟥</span>
             <span class="game-title">格格不入 雙人對決</span>
             <span class="game-desc">經典俄羅斯方塊棋盤策略<br>(2 Player Edition)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
         <a href="blokus-4player_v2.html" target="_blank" rel="noopener noreferrer" class="game-card style-blokus">
             <span class="icon">🟦🟨🟥🟩</span>
             <span class="game-title">格格不入 四人大亂鬥</span>
             <span class="game-desc">多人混戰策略遊戲<br>(4 Player Edition)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
         <a href="five_v1.html" target="_blank" rel="noopener noreferrer" class="game-card style-five">
             <span class="icon">⚫⚪</span>
             <span class="game-title">五子棋大師</span>
             <span class="game-desc">經典連珠棋局<br>(Gomoku)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
         <a href="sango_v2.html" target="_blank" rel="noopener noreferrer" class="game-card style-sango">
             <span class="icon">🧩⚔️</span>
             <span class="game-title">三國華容道</span>
             <span class="game-desc">經典滑塊益智解謎<br>(Klotski Puzzle)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
         <a href="https://mathced-com.github.io/game/num_puzzle.html" target="_blank" rel="noopener noreferrer" class="game-card style-puzzle">
             <span class="icon">🔢🔲</span>
             <span class="game-title">數字方塊</span>
             <span class="game-desc">經典數字排列益智遊戲<br>(Number Slide Puzzle)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
         <div class="game-card coming-soon">
@@ -206,33 +226,64 @@
     </footer>
 
     <script>
-        // 您提供的 GAS 網址已設定於此
+        // 您的 GAS 網址 (doGet 與 doPost 共用同一個網址)
         const TRACKING_URL = "https://script.google.com/macros/s/AKfycbyUceK5jxOPxegHWwBGQH1BUPcFXXxqA7BGjKftaBsV0wpUvghvfxRT62V46kBvh9dAlA/exec"; 
 
-        // 選取所有帶有 game-card 類別的連結
         const cards = document.querySelectorAll('.game-card');
 
+        // --- 功能 1: 網頁載入時，讀取人氣數據 ---
+        window.onload = function() {
+            fetch(TRACKING_URL) // 預設就是 GET 請求
+            .then(response => response.json())
+            .then(data => {
+                // data 格式例如: { "五子棋大師": 10, "三國華容道": 5 }
+                cards.forEach(card => {
+                    // 排除 coming-soon
+                    if(card.classList.contains('coming-soon')) return;
+
+                    const titleEl = card.querySelector('.game-title');
+                    const statEl = card.querySelector('.click-stat');
+                    const gameName = titleEl ? titleEl.innerText : "";
+
+                    // 從回傳資料中查找對應名稱的次數，若無則為 0
+                    const count = data[gameName] || 0;
+                    
+                    // 更新顯示
+                    if(statEl) {
+                        statEl.innerText = `🔥 人氣：${count}`;
+                    }
+                });
+            })
+            .catch(err => {
+                console.error("讀取人氣失敗:", err);
+                // 失敗時不需特別處理，維持"載入中"或可改成隱藏
+            });
+        };
+
+        // --- 功能 2: 點擊時，傳送數據 ---
         cards.forEach(card => {
-            // 排除 coming-soon 區塊，避免誤觸
             if(card.classList.contains('coming-soon')) return;
 
             card.addEventListener('click', function(e) {
-                // 1. 抓取該卡片內的遊戲標題文字
                 const titleElement = this.querySelector('.game-title');
+                const statElement = this.querySelector('.click-stat'); // 抓取統計文字框
                 const gameName = titleElement ? titleElement.innerText : "未知遊戲";
 
-                // 2. 準備要傳送的資料
-                const payload = {
-                    gameName: gameName
-                };
+                // 1. 視覺上先 +1 (讓使用者感覺很即時)
+                if(statElement && statElement.innerText.includes("人氣")) {
+                    // 提取目前的數字
+                    let currentText = statElement.innerText;
+                    let currentCount = parseInt(currentText.replace(/\D/g, '')) || 0; // 取出數字
+                    statElement.innerText = `🔥 人氣：${currentCount + 1}`;
+                }
 
-                // 3. 使用 fetch 發送資料給 GAS (使用 no-cors 模式避免跨域錯誤)
+                // 2. 背景發送資料
+                const payload = { gameName: gameName };
+
                 fetch(TRACKING_URL, {
                     method: 'POST',
                     mode: 'no-cors', 
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8'
-                    },
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 }).then(() => {
                     console.log("統計已發送: " + gameName);
