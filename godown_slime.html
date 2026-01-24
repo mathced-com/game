@@ -2,18 +2,76 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>史萊姆下樓梯 - 平板輸入修正版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>史萊姆下樓梯 - 行動版優化</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        body { 
+            margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
+            /* [修改 1] 使用 dvh 代替 vh，解決手機瀏覽器網址列遮擋問題 */
+            height: 100dvh; 
+        }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
         
+        /* UI 層 */
         #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; }
-        .hud-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; }
+        .hud-top { 
+            display: flex; justify-content: space-between; align-items: center; 
+            /* [修改 1] 增加頂部安全距離，避開瀏海與網址列 */
+            padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px;
+            color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; 
+        }
         .hearts { color: #ff4757; font-size: 24px; letter-spacing: 2px; }
         .btn-help { pointer-events: auto; background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; width: 32px; height: 32px; line-height: 30px; text-align: center; cursor: pointer; font-size: 20px; transition: 0.2s; }
         .btn-help:hover { background: rgba(255, 255, 255, 0.4); }
         
+        /* [新增 2] 虛擬按鈕層 */
+        #controls-layer {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            pointer-events: none; /* 讓容器不擋住點擊，只讓按鈕擋住 */
+            display: flex;
+            justify-content: flex-start; /* 靠左對齊 */
+            padding-left: 20px;
+            box-sizing: border-box;
+             /* 確保在遊戲畫面之上，但在開始畫面之下 */
+            z-index: 10;
+        }
+
+        /* [新增 2] 虛擬按鈕樣式 */
+        .control-btn {
+            pointer-events: auto; /* 恢復按鈕的點擊感應 */
+            width: 70px;
+            height: 70px;
+            background-color: rgba(255, 255, 255, 0.3); /* 預設半透明 */
+            border-radius: 15px;
+            margin-right: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* 防止瀏覽器預設行為 */
+            transition: all 0.1s;
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        /* [新增 2] 按下時的實心效果 */
+        .control-btn.active {
+            background-color: rgba(255, 255, 255, 0.8); /* 變為實心 */
+            color: #000;
+            transform: scale(1.05); /* 稍微放大 */
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        /* Modal & Start Screen 樣式保持不變 */
         #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 100; pointer-events: auto; justify-content: center; align-items: center; }
         .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
         .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
@@ -27,40 +85,21 @@
             color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
             padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; 
             cursor: pointer; pointer-events: auto; z-index: 50; 
-            width: 85%; max-width: 380px;
-            max-height: 90vh; 
+            width: 85%; max-width: 380px; max-height: 90vh; 
             display: flex; flex-direction: column; align-items: center;
         }
-
         #start-title { margin: 10px 0; font-size: 28px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.5); }
         #start-desc { margin: 15px 0; font-size: 18px; line-height: 1.5; }
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
-
-        #leaderboard-section { 
-            margin-top: 10px; background: rgba(255,255,255,0.08); 
-            padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; 
-            overflow-y: auto; max-height: 250px;
-        }
+        #leaderboard-section { margin-top: 10px; background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; overflow-y: auto; max-height: 250px; }
         .lb-header { font-size: 14px; color: #aaa; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .lb-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 2px; }
         .lb-rank { color: #f1c40f; width: 25px; text-align: left; }
         .lb-name { flex-grow: 1; text-align: left; padding-left: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
-        
         #input-section { display: none; margin-bottom: 15px; width: 100%; }
-        
-        /* [修正重點 1] 對輸入框強制啟用觸控操作，並確保層級最高 */
-        #player-name-input { 
-            padding: 10px; border-radius: 5px; border: none; width: 55%; 
-            text-align: center; font-size: 16px; outline: none;
-            touch-action: auto !important; /* 允許瀏覽器處理這裡的觸控 */
-            user-select: text !important;  /* 允許選取文字 */
-            -webkit-user-select: text !important;
-            z-index: 1000; /* 確保在最上層 */
-            position: relative;
-        }
-        
+        #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; z-index: 1000; position: relative; }
         #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; touch-action: manipulation;}
         #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
         #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
@@ -79,13 +118,18 @@
         <div id="pause-text">PAUSED</div>
     </div>
 
+    <div id="controls-layer">
+        <div id="btn-left" class="control-btn">←</div>
+        <div id="btn-right" class="control-btn">→</div>
+    </div>
+
     <div id="modal-overlay">
         <div class="modal-content">
             <span class="modal-close" onclick="toggleHelp(false)">&times;</span>
             <h2>遊戲說明</h2>
             <h3>🕹️ 操作方式</h3>
             <p><strong>電腦：</strong>鍵盤 ⬅️ ➡️ 移動</p>
-            <p><strong>手機：</strong>點擊螢幕 左邊 / 右邊</p>
+            <p><strong>手機：</strong>使用左下角虛擬按鈕</p>
             <p style="color: #fffa65; font-size: 14px;">⚠️ 注意：左右有牆壁，無法穿透！</p>
             <h3>❤️ 生存法則</h3>
             <p>每下 <strong>10 層樓</strong>，若受傷會自動回復一顆心。</p>
@@ -144,6 +188,10 @@
     const nameInput = document.getElementById('player-name-input');
     const submitBtn = document.getElementById('submit-btn');
     const loadingText = document.getElementById('loading-text');
+    
+    // [新增 2] 獲取虛擬按鈕元素
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
 
     let GAME_WIDTH = 600; 
     let GAME_HEIGHT = 800;
@@ -185,9 +233,7 @@
             leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地模式限制</b><br>請使用 Live Server 或上傳至網站<br>才能讀取排行榜。</p>`;
             return;
         }
-
         const fetchUrl = API_URL + "?t=" + new Date().getTime();
-
         fetch(fetchUrl)
             .then(response => {
                 if (!response.ok) throw new Error("Server Error");
@@ -214,7 +260,6 @@
             leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>";
             return;
         }
-        
         let html = "";
         const top10 = data.slice(0, 10);
         top10.forEach((item, index) => {
@@ -307,9 +352,9 @@
     }
 
     function startGameClick(e) {
-        // [修正重點 3] 嚴格防止點擊輸入框時觸發遊戲開始
-        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return;
-        if (inputSection.style.display === 'block') return; // 如果正在顯示輸入框，背景也不能點
+        // [修改] 增加排除虛擬按鈕
+        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn' || e.target.closest('.control-btn')) return;
+        if (inputSection.style.display === 'block') return;
 
         if (gameState === 'MENU' || gameState === 'GAMEOVER') {
             startCountdown();
@@ -424,33 +469,39 @@
         frames++; requestAnimationFrame(loop);
     }
 
+    // --- 事件監聽整理 ---
+
+    // 鍵盤控制
     window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') keys.left = true; if (e.code === 'ArrowRight') keys.right = true; });
     window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') keys.left = false; if (e.code === 'ArrowRight') keys.right = false; });
 
-    // [修正重點 2] 觸控事件處理 - 嚴格排除輸入框
-    window.addEventListener('touchstart', (e) => {
-        // 如果點到按鈕、Overlay、輸入框、送出按鈕，完全不進行任何遊戲邏輯
-        if (e.target.closest('.btn-help') || e.target.closest('#modal-overlay') || e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return;
-        
-        e.preventDefault();
-        if (gameState === 'MENU' || gameState === 'GAMEOVER') { startGameClick(e); return; }
-        for (let i = 0; i < e.touches.length; i++) { if (e.touches[i].clientX < window.innerWidth / 2) keys.left = true; else keys.right = true; }
-    }, { passive: false });
+    // [新增 2] 虛擬按鈕控制邏輯 (同時支援觸控與滑鼠)
+    function handleBtnPress(direction, isActive) {
+        if (direction === 'left') {
+            keys.left = isActive;
+            if (isActive) btnLeft.classList.add('active'); else btnLeft.classList.remove('active');
+        } else {
+            keys.right = isActive;
+            if (isActive) btnRight.classList.add('active'); else btnRight.classList.remove('active');
+        }
+    }
 
-    window.addEventListener('touchend', (e) => {
-        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return; // 輸入框放開也不要干擾
-        
-        e.preventDefault(); 
-        let l=false, r=false;
-        for (let i = 0; i < e.touches.length; i++) { if (e.touches[i].clientX < window.innerWidth / 2) l = true; else r = true; }
-        keys.left = l; keys.right = r;
-    });
+    // 左按鈕事件
+    btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); handleBtnPress('left', true); });
+    btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); handleBtnPress('left', false); });
+    btnLeft.addEventListener('mousedown', () => handleBtnPress('left', true));
+    btnLeft.addEventListener('mouseup', () => handleBtnPress('left', false));
+    btnLeft.addEventListener('mouseleave', () => handleBtnPress('left', false));
 
-    // [修正重點 4] 額外監聽：當點擊輸入框時，強制取得焦點 (有些瀏覽器需要)
-    nameInput.addEventListener('touchstart', function(e) {
-        e.stopPropagation(); // 阻止事件冒泡到 window
-        this.focus();        // 強制鍵盤彈出
-    });
+    // 右按鈕事件
+    btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); handleBtnPress('right', true); });
+    btnRight.addEventListener('touchend', (e) => { e.preventDefault(); handleBtnPress('right', false); });
+    btnRight.addEventListener('mousedown', () => handleBtnPress('right', true));
+    btnRight.addEventListener('mouseup', () => handleBtnPress('right', false));
+    btnRight.addEventListener('mouseleave', () => handleBtnPress('right', false));
+
+    // 輸入框強制聚焦
+    nameInput.addEventListener('touchstart', function(e) { e.stopPropagation(); this.focus(); });
 
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) toggleHelp(false); });
     startScreen.addEventListener('click', startGameClick);
