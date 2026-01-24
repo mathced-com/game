@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - 完美修復版</title>
+    <title>史萊姆下樓梯 - 最終完美版</title>
     <style>
         body { 
             margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
-            height: 100vh; /* Fallback */
             height: 100dvh; 
         }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
         
+        /* UI 層 */
         #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; }
         .hud-top { 
             display: flex; justify-content: space-between; align-items: center; 
@@ -43,7 +43,8 @@
             #controls-layer.align-right .control-btn { margin-right: 0; margin-left: 20px; }
         }
         .control-btn { width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; margin-right: 20px; margin-left: 0; display: flex; justify-content: center; align-items: center; color: white; font-size: 40px; font-weight: bold; user-select: none; -webkit-user-select: none; transition: all 0.1s; backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; }
-        .control-btn.active { background-color: rgba(255, 255, 255, 0.8); color: #000; transform: scale(1.1); box-shadow: 0 0 20px rgba(255,255,255,0.6); }
+        /* Active 樣式增加一點發光感 */
+        .control-btn.active { background-color: rgba(255, 255, 255, 0.8); color: #000; transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 210, 211, 0.8); border-color: #00d2d3; }
 
         /* Start Screen */
         #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; background: rgba(0, 0, 0, 0.95); padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; cursor: pointer; pointer-events: auto; z-index: 50; width: 85%; max-width: 380px; max-height: 95vh; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
@@ -52,7 +53,7 @@
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
         
-        /* 角色選擇樣式 (修正版) */
+        /* 角色選擇 */
         #char-select-section { margin-bottom: 15px; width: 100%; }
         #char-select-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
         .char-list { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
@@ -66,8 +67,6 @@
             background: rgba(0,0,0,0.5); margin-bottom: 5px;
         }
         .char-name { font-size: 12px; color: #aaa; }
-        
-        /* 選中狀態 */
         .char-option.selected .char-icon-box { border-color: yellow; background: rgba(255,255,0,0.2); transform: scale(1.1); }
         .char-option.selected .char-name { color: yellow; font-weight: bold; }
 
@@ -144,8 +143,7 @@
 
         <div id="char-select-section">
             <div id="char-select-title">選擇角色</div>
-            <div class="char-list" id="char-list-container">
-                </div>
+            <div class="char-list" id="char-list-container"></div>
         </div>
 
         <div id="input-section">
@@ -168,7 +166,6 @@
     </div>
 
 <script>
-    // 您的 GAS URL
     const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
 
     const canvas = document.getElementById('gameCanvas');
@@ -247,7 +244,14 @@
             gain.connect(audioCtx.destination);
             const now = audioCtx.currentTime;
 
-            if (type === 'jump') {
+            if (type === 'count') { // [新增] 倒數音效
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'jump') {
                 osc.type = 'sine'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
                 gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.start(now); osc.stop(now + 0.1);
@@ -267,7 +271,7 @@
         } catch(e) { console.warn("Audio Error", e); }
     }
 
-    // --- 角色系統 (修正顯示問題) ---
+    // --- 角色系統 ---
     const characters = [
         { id: 'slime', name: '史萊姆', color: '#00d2d3' },
         { id: 'cube', name: '方塊仔', color: '#ff9f43' },
@@ -283,22 +287,17 @@
             containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`;
             containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
 
-            // 圖示框
             const iconBox = document.createElement('div');
             iconBox.className = 'char-icon-box';
             
-            // 繪製預覽Canvas
             const cvs = document.createElement('canvas');
             cvs.width = 30; cvs.height = 30;
             const c = cvs.getContext('2d');
-            
-            // [修正 2] 強制傳入角色ID給繪圖函式，確保預覽圖正確
             drawCharacter(c, { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 }, char.id);
             
             iconBox.appendChild(cvs);
             containerDiv.appendChild(iconBox);
 
-            // [修正 1] 名字標籤
             const nameLabel = document.createElement('div');
             nameLabel.className = 'char-name';
             nameLabel.innerText = char.name;
@@ -318,12 +317,9 @@
         });
     }
 
-    // [修正 3] 繪圖函式增加 overrideType 參數
     function drawCharacter(ctx, p, overrideType = null) {
-        // 如果有傳入強制類型(預覽用)，就用那個；否則用當前選到的角色(遊戲用)
         const charType = overrideType || characters[currentCharIndex].id;
         const x = p.x; const y = p.y; const w = p.width; const h = p.height;
-        
         ctx.fillStyle = p.color;
         
         if (charType === 'slime') {
@@ -337,7 +333,6 @@
             ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
         } else if (charType === 'ghost') {
             let wave = 0;
-            // 只有遊戲進行中才波動，預覽時靜止
             if (!overrideType) wave = Math.sin(frames * 0.2) * 2;
             ctx.beginPath();
             ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); 
@@ -356,7 +351,6 @@
             ctx.fill();
         }
 
-        // 表情
         let eyeOffset = p.vx * 2;
         let eyeY = y + h - 15;
         if(charType === 'ghost') eyeY = y + 12;
@@ -407,7 +401,6 @@
     const keys = { left: false, right: false };
     let platforms = [];
 
-    // --- 繪圖邏輯 ---
     function drawSpikes(ctx,x,y,w,h){ctx.fillStyle='#ff4757';ctx.beginPath();const c=Math.floor(w/10),s=w/c;ctx.moveTo(x,y+h);for(let i=0;i<=c;i++){ctx.lineTo(x+i*s-s/2,y);ctx.lineTo(x+i*s,y+h)}ctx.fill()}
     function drawConveyor(ctx,x,y,w,h,d){ctx.fillStyle='#1e90ff';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=3;let f=(d==='left')?-1:1,o=(frames*1.5*f)%20;ctx.beginPath();for(let i=-20;i<w+20;i+=15){let dx=x+i+o;if(dx>x&&dx<x+w){ctx.moveTo(dx,y);ctx.lineTo(dx+(d==='left'?-5:5),y+h)}}ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h)}
 
@@ -459,9 +452,14 @@
         startScreen.style.display = 'none';
         countdownVal = 3;
         resetGameData();
+        // [新增] 3 的時候就叫一聲
+        playTone('count');
         let timer = setInterval(() => {
             if (gameState === 'PAUSED') return;
             countdownVal--;
+            // [新增] 2, 1 的時候叫一聲
+            if (countdownVal > 0) playTone('count');
+            
             if (countdownVal <= 0) {
                 clearInterval(timer);
                 gameState = 'PLAYING';
@@ -572,7 +570,6 @@
         if (onPlatform && player.vy === 0) player.y -= gameSpeed;
         if (player.y < 0 || player.y > GAME_HEIGHT) { player.hp = 0; updateUI(); gameOver(); }
         
-        // [修正 3] 遊戲繪圖時，增加 try-catch 防止崩潰
         try {
             if (Math.floor(player.invincibleTimer / 4) % 2 === 0) drawCharacter(ctx, player);
         } catch(e) { console.error("Render Error", e); }
@@ -580,8 +577,16 @@
         frames++; requestAnimationFrame(loop);
     }
 
-    window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') keys.left = true; if (e.code === 'ArrowRight') keys.right = true; });
-    window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') keys.left = false; if (e.code === 'ArrowRight') keys.right = false; });
+    // --- 事件監聽 ---
+    // [修正 1] 鍵盤同步點亮虛擬按鈕
+    window.addEventListener('keydown', (e) => { 
+        if (e.code === 'ArrowLeft') { keys.left = true; btnLeft.classList.add('active'); }
+        if (e.code === 'ArrowRight') { keys.right = true; btnRight.classList.add('active'); }
+    });
+    window.addEventListener('keyup', (e) => { 
+        if (e.code === 'ArrowLeft') { keys.left = false; btnLeft.classList.remove('active'); }
+        if (e.code === 'ArrowRight') { keys.right = false; btnRight.classList.remove('active'); }
+    });
 
     ['touchstart', 'touchend', 'touchmove', 'mousedown', 'mouseup'].forEach(evt => {
         nameInput.addEventListener(evt, (e) => { e.stopPropagation(); });
@@ -629,60 +634,9 @@
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) toggleHelp(false); });
     startScreen.addEventListener('click', startGameClick);
 
-    // --- 排行榜 API (修正 4: 強化讀取邏輯) ---
-    function fetchLeaderboard() {
-        if (window.location.protocol === 'file:') {
-            leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b><br>請上傳至網站<br>以讀取排行榜</p>`;
-            return;
-        }
-        const fetchUrl = API_URL + "?t=" + new Date().getTime();
-        fetch(fetchUrl)
-            .then(response => { if (!response.ok) throw new Error("Err"); return response.text(); })
-            .then(text => {
-                try {
-                    const data = JSON.parse(text);
-                    leaderboardData = data;
-                    renderLeaderboard(data);
-                } catch (e) {
-                    console.error("JSON Err", text);
-                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取格式錯誤</p>`;
-                }
-            })
-            .catch(error => {
-                console.error('Net Err', error);
-                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS)</p>`;
-            });
-    }
-
-    function renderLeaderboard(data) {
-        if (!data || data.length === 0) {
-            leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>";
-            return;
-        }
-        let html = "";
-        const top10 = data.slice(0, 10);
-        top10.forEach((item, index) => {
-            let rankColor = "#fff";
-            if(index === 0) rankColor = "#f1c40f"; if(index === 1) rankColor = "#bdc3c7"; if(index === 2) rankColor = "#e67e22"; 
-            html += `<div class="lb-row"><span class="lb-rank" style="color:${rankColor}">${index + 1}.</span><span class="lb-name">${escapeHtml(item.name)}</span><span class="lb-score">${item.score}F</span></div>`;
-        });
-        leaderboardList.innerHTML = html;
-    }
-
-    function submitScore() {
-        const name = nameInput.value.trim() || "無名氏";
-        submitBtn.disabled = true; submitBtn.style.backgroundColor = "#555"; loadingText.style.display = 'block';
-        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) })
-        .then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); })
-        .catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
-    }
-
-    function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
-    function checkHighscore(currentScore) { if (currentScore === 0) return false; if (leaderboardData.length === 0) return true; if (leaderboardData.length < 10) return true; return currentScore > leaderboardData[leaderboardData.length - 1].score; }
-
-    initCharSelect(); 
     fetchLeaderboard();
     gameState = 'MENU';
+    initCharSelect(); 
     loop(); 
 
 </script>
