@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - 音效與角色版</title>
+    <title>史萊姆下樓梯 - 完美修復版</title>
     <style>
         body { 
             margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
+            height: 100vh; /* Fallback */
             height: 100dvh; 
         }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
         
-        /* UI 層 */
         #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; }
         .hud-top { 
             display: flex; justify-content: space-between; align-items: center; 
@@ -27,7 +27,6 @@
             cursor: pointer; font-size: 20px; transition: 0.2s; user-select: none;
         }
         .icon-btn:hover { background: rgba(255, 255, 255, 0.4); }
-        /* 音效按鈕關閉狀態 */
         .icon-btn.muted { opacity: 0.6; text-decoration: line-through; color: #aaa; border-color: #aaa; }
 
         /* 虛擬按鈕層 */
@@ -46,51 +45,56 @@
         .control-btn { width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; margin-right: 20px; margin-left: 0; display: flex; justify-content: center; align-items: center; color: white; font-size: 40px; font-weight: bold; user-select: none; -webkit-user-select: none; transition: all 0.1s; backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; }
         .control-btn.active { background-color: rgba(255, 255, 255, 0.8); color: #000; transform: scale(1.1); box-shadow: 0 0 20px rgba(255,255,255,0.6); }
 
-        /* Modal & Start Screen */
-        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 100; pointer-events: auto; justify-content: center; align-items: center; }
-        .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
-        .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
-        .modal-close { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
-        .legend-item { display: flex; align-items: center; margin: 10px 0; }
-        .legend-box { width: 30px; height: 15px; margin-right: 10px; border-radius: 2px; display: inline-block;}
-        
+        /* Start Screen */
         #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; background: rgba(0, 0, 0, 0.95); padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; cursor: pointer; pointer-events: auto; z-index: 50; width: 85%; max-width: 380px; max-height: 95vh; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
         #start-title { margin: 10px 0; font-size: 28px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.5); }
         #start-desc { margin: 10px 0; font-size: 18px; line-height: 1.5; }
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
         
+        /* 角色選擇樣式 (修正版) */
+        #char-select-section { margin-bottom: 15px; width: 100%; }
+        #char-select-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
+        .char-list { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
+        .char-option { 
+            display: flex; flex-direction: column; align-items: center; cursor: pointer;
+            padding: 5px; border-radius: 8px; transition: 0.2s;
+        }
+        .char-icon-box {
+            width: 45px; height: 45px; border: 2px solid #555; border-radius: 8px; 
+            display: flex; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.5); margin-bottom: 5px;
+        }
+        .char-name { font-size: 12px; color: #aaa; }
+        
+        /* 選中狀態 */
+        .char-option.selected .char-icon-box { border-color: yellow; background: rgba(255,255,0,0.2); transform: scale(1.1); }
+        .char-option.selected .char-name { color: yellow; font-weight: bold; }
+
         /* 排行榜 */
         #leaderboard-section { margin-top: 10px; background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; overflow-y: auto; max-height: 150px; }
+        .lb-header { font-size: 14px; color: #aaa; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .lb-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 2px; }
         .lb-rank { color: #f1c40f; width: 25px; text-align: left; }
         .lb-name { flex-grow: 1; text-align: left; padding-left: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
         
-        /* 輸入框 */
+        /* 其他 UI */
         #input-section { display: none; margin-bottom: 15px; width: 100%; }
         #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; touch-action: manipulation !important; user-select: text !important; -webkit-user-select: text !important; z-index: 1000; position: relative; }
         #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; touch-action: manipulation;}
         #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
         #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
-
-        /* 設定按鈕區域 */
         #settings-section { margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 14px; color: #ddd; }
         .setting-btn { padding: 5px 15px; border: 1px solid #555; border-radius: 20px; cursor: pointer; background: rgba(0,0,0,0.5); transition: 0.2s; }
         .setting-btn.selected { background: #00d2d3; color: #000; border-color: #00d2d3; font-weight: bold; }
-
-        /* [新增] 角色選擇區域 */
-        #char-select-section { margin-bottom: 15px; width: 100%; }
-        #char-select-title { font-size: 14px; color: #ddd; margin-bottom: 5px; }
-        .char-list { display: flex; justify-content: center; gap: 10px; }
-        .char-option { 
-            width: 40px; height: 40px; border: 2px solid #555; border-radius: 8px; 
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-            background: rgba(0,0,0,0.5); transition: 0.2s;
-        }
-        .char-option canvas { width: 30px; height: 30px; }
-        .char-option.selected { border-color: yellow; background: rgba(255,255,0,0.2); transform: scale(1.1); }
-
+        
+        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 100; pointer-events: auto; justify-content: center; align-items: center; }
+        .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
+        .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
+        .modal-close { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
+        .legend-item { display: flex; align-items: center; margin: 10px 0; }
+        .legend-box { width: 30px; height: 15px; margin-right: 10px; border-radius: 2px; display: inline-block;}
     </style>
 </head>
 <body>
@@ -164,6 +168,7 @@
     </div>
 
 <script>
+    // 您的 GAS URL
     const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
 
     const canvas = document.getElementById('gameCanvas');
@@ -208,8 +213,8 @@
     let leaderboardData = []; 
     let isMouseDown = false;
     
-    // --- 音效系統 (Web Audio API) ---
-    let isMuted = true; // 預設關閉
+    // 音效
+    let isMuted = true;
     let audioCtx = null;
 
     function initAudio() {
@@ -226,113 +231,86 @@
         if (!isMuted) {
             btnSound.classList.remove('muted');
             btnSound.innerText = "🔊";
-            initAudio(); // 開啟時嘗試初始化
+            initAudio();
         } else {
             btnSound.classList.add('muted');
             btnSound.innerText = "🔇";
         }
     }
 
-    // 產生簡單的合成音效
     function playTone(type) {
         if (isMuted || !audioCtx) return;
-        
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
 
-        const now = audioCtx.currentTime;
-
-        if (type === 'jump') { // 踩到地板 (短促低音)
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(150, now);
-            osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-            osc.start(now);
-            osc.stop(now + 0.1);
-        } else if (type === 'damage') { // 受傷 (高音滑落)
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(400, now);
-            osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-            osc.start(now);
-            osc.stop(now + 0.3);
-        } else if (type === 'heal') { // 回血 (上行琶音)
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(400, now);
-            osc.frequency.setValueAtTime(600, now + 0.1);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-            osc.start(now);
-            osc.stop(now + 0.3);
-        } else if (type === 'gameover') { // 結束 (長低音)
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(200, now);
-            osc.frequency.exponentialRampToValueAtTime(50, now + 1);
-            gain.gain.setValueAtTime(0.5, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 1);
-            osc.start(now);
-            osc.stop(now + 1);
-        }
+            if (type === 'jump') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'damage') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'heal') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'gameover') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(50, now + 1);
+                gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0.01, now + 1);
+                osc.start(now); osc.stop(now + 1);
+            }
+        } catch(e) { console.warn("Audio Error", e); }
     }
 
-    // --- 角色系統 ---
+    // --- 角色系統 (修正顯示問題) ---
     const characters = [
         { id: 'slime', name: '史萊姆', color: '#00d2d3' },
-        { id: 'cube', name: '方塊', color: '#ff9f43' },
+        { id: 'cube', name: '方塊仔', color: '#ff9f43' },
         { id: 'ghost', name: '幽靈', color: '#a29bfe' },
         { id: 'bunny', name: '兔子', color: '#ff7675' }
     ];
-    let currentCharIndex = 0; // 預設史萊姆
+    let currentCharIndex = 0; 
 
-    // 初始化角色選單
     function initCharSelect() {
         charListContainer.innerHTML = '';
         characters.forEach((char, index) => {
-            const div = document.createElement('div');
-            div.className = `char-option ${index === 0 ? 'selected' : ''}`;
-            div.onclick = (e) => {
-                // 停止冒泡，避免觸發開始遊戲
-                e.stopPropagation(); 
-                selectCharacter(index);
-            };
+            const containerDiv = document.createElement('div');
+            containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`;
+            containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
+
+            // 圖示框
+            const iconBox = document.createElement('div');
+            iconBox.className = 'char-icon-box';
             
-            // 繪製預覽圖
+            // 繪製預覽Canvas
             const cvs = document.createElement('canvas');
             cvs.width = 30; cvs.height = 30;
             const c = cvs.getContext('2d');
-            // 模擬玩家物件進行繪製
-            const mockPlayer = { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 };
             
-            // 根據類型繪製
-            c.save();
-            // 簡單繪製預覽 (不帶表情細節以免太複雜)
-            c.fillStyle = char.color;
-            if(char.id==='slime') {
-                c.beginPath(); c.arc(15, 20, 15, 0, Math.PI, false);
-                c.bezierCurveTo(0, 20, 15, 0, 30, 20); c.fill();
-            } else if(char.id==='cube') {
-                c.fillRect(0,0,30,30);
-            } else if(char.id==='ghost') {
-                c.beginPath(); c.arc(15,15,15,Math.PI,0); c.lineTo(30,30); c.lineTo(0,30); c.fill();
-            } else if(char.id==='bunny') {
-                c.beginPath(); c.arc(15,18,12,0,Math.PI*2); c.fill();
-                c.beginPath(); c.ellipse(8,5,4,10,0,0,Math.PI*2); c.ellipse(22,5,4,10,0,0,Math.PI*2); c.fill();
-            }
-            c.restore();
+            // [修正 2] 強制傳入角色ID給繪圖函式，確保預覽圖正確
+            drawCharacter(c, { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 }, char.id);
             
-            div.appendChild(cvs);
-            charListContainer.appendChild(div);
+            iconBox.appendChild(cvs);
+            containerDiv.appendChild(iconBox);
+
+            // [修正 1] 名字標籤
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'char-name';
+            nameLabel.innerText = char.name;
+            containerDiv.appendChild(nameLabel);
+
+            charListContainer.appendChild(containerDiv);
         });
     }
 
     function selectCharacter(index) {
         currentCharIndex = index;
         player.color = characters[index].color;
-        // 更新 UI
         const options = document.querySelectorAll('.char-option');
         options.forEach((opt, i) => {
             if(i === index) opt.classList.add('selected');
@@ -340,47 +318,45 @@
         });
     }
 
-    // 繪製角色 (通用函數)
-    function drawCharacter(ctx, p) {
-        const charType = characters[currentCharIndex].id;
+    // [修正 3] 繪圖函式增加 overrideType 參數
+    function drawCharacter(ctx, p, overrideType = null) {
+        // 如果有傳入強制類型(預覽用)，就用那個；否則用當前選到的角色(遊戲用)
+        const charType = overrideType || characters[currentCharIndex].id;
         const x = p.x; const y = p.y; const w = p.width; const h = p.height;
         
         ctx.fillStyle = p.color;
         
         if (charType === 'slime') {
-            // 史萊姆 (原版)
             let tilt = -p.vx * 3;
             ctx.beginPath();
             ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false);
             ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10);
             ctx.fill();
         } else if (charType === 'cube') {
-            // 方塊 (復古)
             ctx.fillRect(x, y, w, h);
-            // 邊框
             ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
         } else if (charType === 'ghost') {
-            // 幽靈
-            let wave = Math.sin(frames * 0.2) * 2;
+            let wave = 0;
+            // 只有遊戲進行中才波動，預覽時靜止
+            if (!overrideType) wave = Math.sin(frames * 0.2) * 2;
             ctx.beginPath();
-            ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); // 圓頭
+            ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); 
             ctx.lineTo(x + w, y + h + wave);
             ctx.lineTo(x + w/2, y + h - wave);
             ctx.lineTo(x, y + h + wave);
             ctx.fill();
         } else if (charType === 'bunny') {
-            // 兔子
             let earTilt = p.vx * 2;
-            ctx.beginPath(); // 耳朵
+            ctx.beginPath(); 
             ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2);
             ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2);
             ctx.fill();
-            ctx.beginPath(); // 臉
+            ctx.beginPath(); 
             ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2);
             ctx.fill();
         }
 
-        // --- 表情 (通用) ---
+        // 表情
         let eyeOffset = p.vx * 2;
         let eyeY = y + h - 15;
         if(charType === 'ghost') eyeY = y + 12;
@@ -400,15 +376,13 @@
         ctx.arc(x + w/2 + 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2);
         ctx.fill();
 
-        // 嘴巴
         if(p.invincibleTimer > 0) {
-             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); // 受傷嘴
+             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); 
         } else {
-             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); // 微笑
+             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); 
         }
     }
 
-    // --- 設定功能 ---
     function setControlSide(side) {
         const btns = document.querySelectorAll('.setting-btn');
         if (side === 'left') {
@@ -470,10 +444,9 @@
     }
 
     function startGameClick(e) {
-        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn' || e.target.closest('.control-btn') || e.target.closest('.setting-btn') || e.target.closest('.char-option')) return;
+        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn' || e.target.closest('.control-btn') || e.target.closest('.setting-btn') || e.target.closest('.char-option') || e.target.closest('.icon-btn')) return;
         if (inputSection.style.display === 'block') return;
 
-        // [新增] 點擊開始時，如果沒靜音，初始化音效引擎
         if(!isMuted) initAudio();
 
         if (gameState === 'MENU' || gameState === 'GAMEOVER') {
@@ -506,7 +479,7 @@
     }
 
     function gameOver() {
-        playTone('gameover'); // 播放音效
+        playTone('gameover');
         gameState = 'GAMEOVER';
         isMouseDown = false;
         keys.left = false; keys.right = false;
@@ -569,7 +542,7 @@
             if (player.floorsSinceLastHeal >= 10) { 
                 if (player.hp < 100) { 
                     player.hp += 34; if(player.hp > 100) player.hp = 100; 
-                    playTone('heal'); // 播放音效
+                    playTone('heal'); 
                 } 
                 player.floorsSinceLastHeal = 0; 
             }
@@ -581,14 +554,11 @@
         platforms.forEach((p, index) => {
             p.update(); p.draw();
             if (player.vy > 0 && player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 15) {
-                
-                // 只有當「剛落地」那瞬間才播放音效，避免滑行時連續播放
                 if (player.vy > 2) playTone('jump'); 
-
                 player.vy = 0; player.y = p.y - player.height; onPlatform = true;
                 if (p.type === 'spike') { if (!p.hasDealtDamage) { if (player.invincibleTimer === 0) { 
                     player.hp -= 34; p.hasDealtDamage = true; player.invincibleTimer = 40; player.vy = -6; updateUI(); 
-                    playTone('damage'); // 播放音效
+                    playTone('damage'); 
                     if (player.hp <= 0) gameOver(); 
                 } } } 
                 else if (p.type === 'conveyor_left') player.x -= 3.5; else if (p.type === 'conveyor_right') player.x += 3.5;
@@ -602,13 +572,14 @@
         if (onPlatform && player.vy === 0) player.y -= gameSpeed;
         if (player.y < 0 || player.y > GAME_HEIGHT) { player.hp = 0; updateUI(); gameOver(); }
         
-        // [修改] 呼叫新的角色繪製函式
-        if (Math.floor(player.invincibleTimer / 4) % 2 === 0) drawCharacter(ctx, player);
+        // [修正 3] 遊戲繪圖時，增加 try-catch 防止崩潰
+        try {
+            if (Math.floor(player.invincibleTimer / 4) % 2 === 0) drawCharacter(ctx, player);
+        } catch(e) { console.error("Render Error", e); }
         
         frames++; requestAnimationFrame(loop);
     }
 
-    // --- 事件監聽 ---
     window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') keys.left = true; if (e.code === 'ArrowRight') keys.right = true; });
     window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') keys.left = false; if (e.code === 'ArrowRight') keys.right = false; });
 
@@ -636,7 +607,6 @@
              if (clientX >= leftRect.left && clientX <= leftRect.right && clientY >= leftRect.top && clientY <= leftRect.bottom) hitLeft = true;
              if (clientX >= rightRect.left && clientX <= rightRect.right && clientY >= rightRect.top && clientY <= rightRect.bottom) hitRight = true;
         }
-        
         keys.left = hitLeft; keys.right = hitRight;
         if (hitLeft) btnLeft.classList.add('active'); else btnLeft.classList.remove('active');
         if (hitRight) btnRight.classList.add('active'); else btnRight.classList.remove('active');
@@ -655,11 +625,62 @@
     window.addEventListener('mouseup', () => { isMouseDown = false; keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); });
 
     nameInput.addEventListener('touchstart', function(e) { e.stopPropagation(); this.focus(); });
+
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) toggleHelp(false); });
     startScreen.addEventListener('click', startGameClick);
 
-    // 啟動程序
-    initCharSelect(); // 初始化角色選單
+    // --- 排行榜 API (修正 4: 強化讀取邏輯) ---
+    function fetchLeaderboard() {
+        if (window.location.protocol === 'file:') {
+            leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b><br>請上傳至網站<br>以讀取排行榜</p>`;
+            return;
+        }
+        const fetchUrl = API_URL + "?t=" + new Date().getTime();
+        fetch(fetchUrl)
+            .then(response => { if (!response.ok) throw new Error("Err"); return response.text(); })
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    leaderboardData = data;
+                    renderLeaderboard(data);
+                } catch (e) {
+                    console.error("JSON Err", text);
+                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取格式錯誤</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Net Err', error);
+                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS)</p>`;
+            });
+    }
+
+    function renderLeaderboard(data) {
+        if (!data || data.length === 0) {
+            leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>";
+            return;
+        }
+        let html = "";
+        const top10 = data.slice(0, 10);
+        top10.forEach((item, index) => {
+            let rankColor = "#fff";
+            if(index === 0) rankColor = "#f1c40f"; if(index === 1) rankColor = "#bdc3c7"; if(index === 2) rankColor = "#e67e22"; 
+            html += `<div class="lb-row"><span class="lb-rank" style="color:${rankColor}">${index + 1}.</span><span class="lb-name">${escapeHtml(item.name)}</span><span class="lb-score">${item.score}F</span></div>`;
+        });
+        leaderboardList.innerHTML = html;
+    }
+
+    function submitScore() {
+        const name = nameInput.value.trim() || "無名氏";
+        submitBtn.disabled = true; submitBtn.style.backgroundColor = "#555"; loadingText.style.display = 'block';
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) })
+        .then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); })
+        .catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
+    }
+
+    function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+    function checkHighscore(currentScore) { if (currentScore === 0) return false; if (leaderboardData.length === 0) return true; if (leaderboardData.length < 10) return true; return currentScore > leaderboardData[leaderboardData.length - 1].score; }
+
+    initCharSelect(); 
     fetchLeaderboard();
     gameState = 'MENU';
     loop(); 
