@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>史萊姆下樓梯 - 排行榜修復版</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
+        
+        /* UI 層 */
+        #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; }
+        .hud-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; }
+        .hearts { color: #ff4757; font-size: 24px; letter-spacing: 2px; }
+        .btn-help { pointer-events: auto; background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; width: 32px; height: 32px; line-height: 30px; text-align: center; cursor: pointer; font-size: 20px; transition: 0.2s; }
+        .btn-help:hover { background: rgba(255, 255, 255, 0.4); }
+        
+        /* 說明視窗 */
+        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 100; pointer-events: auto; justify-content: center; align-items: center; }
+        .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
+        .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
+        .modal-content h3 { border-bottom: 1px solid #555; padding-bottom: 5px; margin-top: 20px; font-size: 16px; color: #aaa; }
+        .modal-close { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
+        .legend-item { display: flex; align-items: center; margin: 10px 0; }
+        .legend-box { width: 30px; height: 15px; margin-right: 10px; border-radius: 2px; display: inline-block;}
+        
+        /* 開始/結束畫面 */
+        #start-screen { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
+            padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; 
+            cursor: pointer; pointer-events: auto; z-index: 50; 
+            width: 85%; max-width: 380px;
+            max-height: 90vh; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        #start-title { margin: 10px 0; font-size: 28px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.5); }
+        #start-desc { margin: 15px 0; font-size: 18px; line-height: 1.5; }
+        .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* 排行榜區塊 */
+        #leaderboard-section { 
+            margin-top: 10px; background: rgba(255,255,255,0.08); 
+            padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; 
+            overflow-y: auto; 
+            max-height: 250px;
+        }
+        .lb-header { font-size: 14px; color: #aaa; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .lb-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 2px; }
+        .lb-rank { color: #f1c40f; width: 25px; text-align: left; }
+        .lb-name { flex-grow: 1; text-align: left; padding-left: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
+        
+        /* 輸入框區塊 */
+        #input-section { display: none; margin-bottom: 15px; width: 100%; }
+        #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; }
+        #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; }
+        #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
+        
+        #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div><span id="score">0</span> 樓</div>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="hearts" id="hp-display">❤️❤️❤️</div>
+                <div class="btn-help" onclick="toggleHelp(true)">?</div>
+            </div>
+        </div>
+        <div id="pause-text">PAUSED</div>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="toggleHelp(false)">&times;</span>
+            <h2>遊戲說明</h2>
+            <h3>🕹️ 操作方式</h3>
+            <p><strong>電腦：</strong>鍵盤 ⬅️ ➡️ 移動</p>
+            <p><strong>手機：</strong>點擊螢幕 左邊 / 右邊</p>
+            <p style="color: #fffa65; font-size: 14px;">⚠️ 注意：左右有牆壁，無法穿透！</p>
+            <h3>❤️ 生存法則</h3>
+            <p>每下 <strong>10 層樓</strong>，若受傷會自動回復一顆心。</p>
+            <h3>🧩 地形介紹</h3>
+            <div class="legend-item"><span class="legend-box" style="background:#2ed573;"></span><span><b>普通階梯</b>：安全。</span></div>
+            <div class="legend-item"><span class="legend-box" style="background: repeating-linear-gradient(45deg, #ff4757, #ff4757 5px, #d63031 5px, #d63031 10px);"></span><span><b>尖刺階梯</b>：扣血並彈起。</span></div>
+            <div class="legend-item"><span class="legend-box" style="background: repeating-linear-gradient(90deg, #1e90ff, #1e90ff 5px, #00d2d3 5px, #00d2d3 10px);"></span><span><b>傳送帶</b>：強制滑動。</span></div>
+            <p style="text-align: center; margin-top: 20px; color: yellow; font-size: 14px;">點擊關閉視窗</p>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="start-screen">
+        <h2 id="start-title">史萊姆下樓梯</h2>
+        
+        <div id="input-section">
+            <p style="color: #f1c40f; font-size: 16px; margin: 5px 0;">🏆 恭喜進入前 10 名！</p>
+            <div style="display: flex; justify-content: center; align-items: center;">
+                <input type="text" id="player-name-input" placeholder="輸入暱稱" maxlength="8">
+                <button id="submit-btn" onclick="submitScore()">送出</button>
+            </div>
+            <p id="loading-text">上傳中...</p>
+        </div>
+
+        <div id="start-desc-container">
+            <p id="start-desc" class="blink">點擊畫面開始挑戰</p>
+        </div>
+
+        <div id="leaderboard-section">
+            <div class="lb-header">
+                <span>排行</span>
+                <span>暱稱</span>
+                <span>樓層</span>
+            </div>
+            <div id="leaderboard-list">
+                <p style="font-size: 14px; color: #888;">載入排行榜...</p>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // 您的 Google Apps Script 網址 (已包含在內)
+    const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const hpEl = document.getElementById('hp-display');
+    
+    // UI 元件
+    const startScreen = document.getElementById('start-screen');
+    const startTitle = document.getElementById('start-title');
+    const startDesc = document.getElementById('start-desc');
+    const inputSection = document.getElementById('input-section');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const pauseText = document.getElementById('pause-text');
+    const leaderboardList = document.getElementById('leaderboard-list');
+    
+    // 輸入框元件
+    const nameInput = document.getElementById('player-name-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const loadingText = document.getElementById('loading-text');
+
+    let GAME_WIDTH = 600; 
+    let GAME_HEIGHT = 800;
+
+    function resize() {
+        const isMobile = window.innerWidth < 600;
+        GAME_WIDTH = isMobile ? window.innerWidth : 600;
+        GAME_HEIGHT = window.innerHeight;
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let gameState = 'MENU';
+    let previousState = 'MENU';
+    let score = 0;
+    let frames = 0;
+    let gameSpeed = 2;
+    let countdownVal = 3;
+    let leaderboardData = []; 
+
+    const player = {
+        x: 0, y: 100, width: 30, height: 30,
+        color: '#00d2d3',
+        vx: 0, vy: 0,
+        speed: 0.8, friction: 0.9, gravity: 0.5,
+        hp: 100,
+        invincibleTimer: 0,
+        floorsSinceLastHeal: 0 
+    };
+
+    const keys = { left: false, right: false };
+    let platforms = [];
+
+    // --- 排行榜 API 功能 (修正版) ---
+
+    function fetchLeaderboard() {
+        // 在請求前加上時間戳記，避免快取
+        const fetchUrl = API_URL + "?t=" + new Date().getTime();
+
+        fetch(fetchUrl)
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.text(); // 先轉成文字，避免非 JSON 導致崩潰
+            })
+            .then(text => {
+                try {
+                    const data = JSON.parse(text); // 嘗試解析 JSON
+                    leaderboardData = data;
+                    renderLeaderboard(data);
+                } catch (e) {
+                    console.error("JSON 解析錯誤 (可能收到 HTML):", text);
+                    // 這種情況通常是 GAS 權限沒開成「任何人」
+                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取錯誤<br>請檢查 GAS 權限<br>(詳見 Console)</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                leaderboardList.innerHTML = "<p style='font-size:14px; color:red;'>網路連線失敗</p>";
+            });
+    }
+
+    function renderLeaderboard(data) {
+        if (!data || data.length === 0) {
+            leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄，搶頭香！</p>";
+            return;
+        }
+        
+        let html = "";
+        const top10 = data.slice(0, 10);
+        
+        top10.forEach((item, index) => {
+            let rankColor = "#fff";
+            if(index === 0) rankColor = "#f1c40f"; 
+            if(index === 1) rankColor = "#bdc3c7"; 
+            if(index === 2) rankColor = "#e67e22"; 
+            
+            html += `
+            <div class="lb-row">
+                <span class="lb-rank" style="color:${rankColor}">${index + 1}.</span>
+                <span class="lb-name">${escapeHtml(item.name)}</span>
+                <span class="lb-score">${item.score}F</span>
+            </div>`;
+        });
+        leaderboardList.innerHTML = html;
+    }
+
+    function submitScore() {
+        const name = nameInput.value.trim() || "無名氏";
+        
+        submitBtn.disabled = true;
+        submitBtn.style.backgroundColor = "#555";
+        loadingText.style.display = 'block';
+
+        fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, score: score })
+        })
+        .then(() => {
+            // 因為 no-cors，我們假設送出後稍等一下就成功
+            setTimeout(() => {
+                loadingText.style.display = 'none';
+                inputSection.style.display = 'none';
+                startDesc.style.display = 'block';
+                startDesc.innerHTML = "上傳成功！<br>點擊畫面重試";
+                
+                // 重新抓取排行榜 (這時候應該會有新資料)
+                fetchLeaderboard(); 
+            }, 1200);
+        })
+        .catch(err => {
+            console.error(err);
+            loadingText.innerText = "上傳失敗";
+            submitBtn.disabled = false;
+            submitBtn.style.backgroundColor = "#00d2d3";
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return text;
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function checkHighscore(currentScore) {
+        if (currentScore === 0) return false;
+        if (leaderboardData.length < 10) return true;
+        const lastPlaceScore = leaderboardData[leaderboardData.length - 1].score;
+        return currentScore > lastPlaceScore;
+    }
+
+    // --- 遊戲邏輯 ---
+
+    function drawSpikes(ctx,x,y,w,h){ctx.fillStyle='#ff4757';ctx.beginPath();const c=Math.floor(w/10),s=w/c;ctx.moveTo(x,y+h);for(let i=0;i<=c;i++){ctx.lineTo(x+i*s-s/2,y);ctx.lineTo(x+i*s,y+h)}ctx.fill()}
+    function drawConveyor(ctx,x,y,w,h,d){ctx.fillStyle='#1e90ff';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=3;let f=(d==='left')?-1:1,o=(frames*1.5*f)%20;ctx.beginPath();for(let i=-20;i<w+20;i+=15){let dx=x+i+o;if(dx>x&&dx<x+w){ctx.moveTo(dx,y);ctx.lineTo(dx+(d==='left'?-5:5),y+h)}}ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h)}
+    function drawSlime(ctx,x,y,w,h){ctx.fillStyle=player.color;let t=-player.vx*3;ctx.beginPath();ctx.arc(x+w/2,y+h-10,w/2,0,Math.PI,false);ctx.bezierCurveTo(x,y+h-10,x+w/2+t,y,x+w,y+h-10);ctx.fill();let eo=player.vx*2,ey=y+h-12;ctx.fillStyle='white';ctx.beginPath();ctx.arc(x+w/2-6+eo,ey,4,0,Math.PI*2);ctx.arc(x+w/2+6+eo,ey,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='black';ctx.beginPath();ctx.arc(x+w/2-6+eo+(player.vx>0?1:-1),ey,1.5,0,Math.PI*2);ctx.arc(x+w/2+6+eo+(player.vx>0?1:-1),ey,1.5,0,Math.PI*2);ctx.fill();if(player.invincibleTimer>0){ctx.beginPath();ctx.arc(x+w/2+eo,ey+8,3,0,Math.PI*2);ctx.fill()}else{ctx.beginPath();ctx.arc(x+w/2+eo,ey+6,5,0.2*Math.PI,0.8*Math.PI);ctx.stroke()}}
+
+    class Platform {
+        constructor(y, type = 'normal') {
+            this.width = 100 + Math.random() * 40;
+            this.height = 16;
+            this.x = Math.random() * (GAME_WIDTH - this.width);
+            this.y = y;
+            this.type = type; 
+            this.hasDealtDamage = false; 
+        }
+        draw() {
+            if (this.type === 'normal') {
+                ctx.fillStyle = '#2ed573'; ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(this.x, this.y + 12, this.width, 4);
+            } 
+            else if (this.type === 'spike') drawSpikes(ctx, this.x, this.y, this.width, this.height);
+            else if (this.type.includes('conveyor')) drawConveyor(ctx, this.x, this.y, this.width, this.height, this.type === 'conveyor_left' ? 'left' : 'right');
+        }
+        update() { this.y -= gameSpeed; }
+    }
+
+    function toggleHelp(show) {
+        if (show) {
+            modalOverlay.style.display = 'flex';
+            if (gameState === 'PLAYING' || gameState === 'COUNTDOWN') {
+                previousState = gameState; gameState = 'PAUSED'; pauseText.style.display = 'block';
+            }
+        } else {
+            modalOverlay.style.display = 'none';
+            if (gameState === 'PAUSED') { gameState = previousState; pauseText.style.display = 'none'; }
+        }
+    }
+
+    function startGameClick(e) {
+        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return;
+        if (inputSection.style.display === 'block') return;
+        if (gameState === 'MENU' || gameState === 'GAMEOVER') {
+            startCountdown();
+        }
+    }
+
+    function startCountdown() {
+        gameState = 'COUNTDOWN';
+        startScreen.style.display = 'none';
+        countdownVal = 3;
+        resetGameData();
+        let timer = setInterval(() => {
+            if (gameState === 'PAUSED') return;
+            countdownVal--;
+            if (countdownVal <= 0) {
+                clearInterval(timer);
+                gameState = 'PLAYING';
+            }
+        }, 1000);
+    }
+
+    function resetGameData() {
+        score = 0; frames = 0; gameSpeed = 2.2;
+        player.hp = 100; player.x = GAME_WIDTH / 2 - player.width / 2; player.y = 100;
+        player.vx = 0; player.vy = 0; player.invincibleTimer = 0; player.floorsSinceLastHeal = 0; 
+        platforms = [];
+        for (let i = 0; i < 7; i++) platforms.push(new Platform(200 + i * 140, 'normal'));
+        updateUI();
+    }
+
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        startTitle.innerText = "遊戲結束";
+        startDesc.innerHTML = `最終成績: ${score} 樓<br><span class="blink">點擊畫面重試</span>`;
+        startDesc.style.display = 'block';
+
+        if (checkHighscore(score)) {
+            inputSection.style.display = 'block';
+            startDesc.style.display = 'none'; 
+            nameInput.value = "";
+            submitBtn.disabled = false;
+            submitBtn.style.backgroundColor = "#00d2d3";
+        } else {
+            inputSection.style.display = 'none';
+        }
+        
+        // 確保重新抓取一次排行榜
+        fetchLeaderboard();
+        startScreen.style.display = 'flex';
+    }
+
+    function updateUI() {
+        scoreEl.innerText = score;
+        let hearts = '';
+        if (player.hp > 66) hearts = '❤️❤️❤️'; else if (player.hp > 33) hearts = '❤️❤️🖤'; else if (player.hp > 0) hearts = '❤️🖤🖤'; else hearts = '🖤🖤🖤';
+        hpEl.innerText = hearts;
+    }
+
+    function loop() {
+        if (gameState === 'PAUSED') { requestAnimationFrame(loop); return; }
+        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (gameState === 'COUNTDOWN') {
+            platforms.forEach(p => p.draw());
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            ctx.fillStyle = '#00d2d3'; ctx.font = 'bold 100px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(countdownVal, GAME_WIDTH/2, GAME_HEIGHT/2);
+            requestAnimationFrame(loop); return;
+        }
+
+        if (gameState !== 'PLAYING') {
+            if(platforms.length > 0) platforms.forEach(p => p.draw());
+            requestAnimationFrame(loop); return;
+        }
+
+        // 物理運算
+        if (keys.left) player.vx -= player.speed; if (keys.right) player.vx += player.speed;
+        player.vx *= player.friction; player.x += player.vx;
+        player.vy += player.gravity; player.y += player.vy;
+        if (player.invincibleTimer > 0) player.invincibleTimer--;
+
+        // 生成與回血邏輯 (10層樓)
+        if (frames % 60 === 0) { 
+            let type = 'normal', rand = Math.random();
+            if (score > 30) { if (rand < 0.3) type = 'spike'; else if (rand < 0.5) type = (Math.random()>0.5) ? 'conveyor_left' : 'conveyor_right'; } 
+            else if (score > 10) { if (rand < 0.2) type = (Math.random()>0.5) ? 'conveyor_left' : 'conveyor_right'; }
+            platforms.push(new Platform(GAME_HEIGHT, type));
+            score++;
+            
+            player.floorsSinceLastHeal++;
+            if (player.floorsSinceLastHeal >= 10) { 
+                if (player.hp < 100) { player.hp += 34; if(player.hp > 100) player.hp = 100; } 
+                player.floorsSinceLastHeal = 0; 
+            }
+            updateUI();
+            if (score % 25 === 0) gameSpeed += 0.2;
+        }
+
+        let onPlatform = false;
+        platforms.forEach((p, index) => {
+            p.update(); p.draw();
+            if (player.vy > 0 && player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 15) {
+                player.vy = 0; player.y = p.y - player.height; onPlatform = true;
+                if (p.type === 'spike') { if (!p.hasDealtDamage) { if (player.invincibleTimer === 0) { player.hp -= 34; p.hasDealtDamage = true; player.invincibleTimer = 40; player.vy = -6; updateUI(); if (player.hp <= 0) gameOver(); } } } 
+                else if (p.type === 'conveyor_left') player.x -= 3.5; else if (p.type === 'conveyor_right') player.x += 3.5;
+            }
+            if (p.y < -50) platforms.splice(index, 1);
+        });
+
+        // 邊界修正
+        if (player.x < 0) { player.x = 0; if (player.vx < 0) player.vx = 0; }
+        else if (player.x + player.width > GAME_WIDTH) { player.x = GAME_WIDTH - player.width; if (player.vx > 0) player.vx = 0; }
+
+        if (onPlatform && player.vy === 0) player.y -= gameSpeed;
+        if (player.y < 0 || player.y > GAME_HEIGHT) { player.hp = 0; updateUI(); gameOver(); }
+        if (Math.floor(player.invincibleTimer / 4) % 2 === 0) drawSlime(ctx, player.x, player.y, player.width, player.height);
+        frames++; requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') keys.left = true; if (e.code === 'ArrowRight') keys.right = true; });
+    window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') keys.left = false; if (e.code === 'ArrowRight') keys.right = false; });
+    window.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.btn-help') || e.target.closest('#modal-overlay') || e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return;
+        e.preventDefault();
+        if (gameState === 'MENU' || gameState === 'GAMEOVER') { startGameClick(e); return; }
+        for (let i = 0; i < e.touches.length; i++) { if (e.touches[i].clientX < window.innerWidth / 2) keys.left = true; else keys.right = true; }
+    }, { passive: false });
+    window.addEventListener('touchend', (e) => {
+        e.preventDefault(); let l=false, r=false;
+        for (let i = 0; i < e.touches.length; i++) { if (e.touches[i].clientX < window.innerWidth / 2) l = true; else r = true; }
+        keys.left = l; keys.right = r;
+    });
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) toggleHelp(false); });
+    startScreen.addEventListener('click', startGameClick);
+
+    // 程式啟動
+    fetchLeaderboard();
+    gameState = 'MENU';
+    loop(); 
+
+</script>
+</body>
+</html>
