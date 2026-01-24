@@ -15,7 +15,8 @@
             --accent-orange: #ff9900; /* 五子棋：霓虹橘 */
             --accent-red: #ff3333;    /* 華容道：赤紅 */
             --accent-purple: #d500f9; /* 數字方塊：霓虹紫 */
-            --accent-green: #39ff14;  /* 史萊姆：霓虹綠 */
+            --accent-green: #39ff14;  /* 下樓梯：霓虹綠 */
+            --accent-blue: #00bfff;   /* 上樓梯：霓虹天藍 */
             --accent-gray: #888888;   /* 待新增：灰色 */
         }
 
@@ -116,10 +117,15 @@
             box-shadow: 0 0 20px rgba(213, 0, 249, 0.4);
         }
 
-        /* 新增：史萊姆配色 */
         .game-card.style-slime:hover {
             border-color: var(--accent-green);
             box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+        }
+
+        /* 新增：上樓梯配色 (天藍) */
+        .game-card.style-up:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 20px rgba(0, 191, 255, 0.4);
         }
 
         /* --- 持續新增中區塊樣式 --- */
@@ -224,6 +230,13 @@
             <span class="icon">🟢🪜</span>
             <span class="game-title">史萊姆下樓梯</span>
             <span class="game-desc">經典反應閃避遊戲<br>(NS-SHAFT Style)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
+        </a>
+
+        <a href="goup_slime.html" target="_blank" rel="noopener noreferrer" class="game-card style-up">
+            <span class="icon">🟢☁️</span>
+            <span class="game-title">史萊姆上樓梯</span>
+            <span class="game-desc">挑戰極限向上攀爬<br>(Go Up Challenge)</span>
             <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
