@@ -3,19 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>史萊姆下樓梯 - 排行榜修復版</title>
+    <title>史萊姆下樓梯 - 最終修正版</title>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
         
-        /* UI 層 */
         #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; }
         .hud-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; }
         .hearts { color: #ff4757; font-size: 24px; letter-spacing: 2px; }
         .btn-help { pointer-events: auto; background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; width: 32px; height: 32px; line-height: 30px; text-align: center; cursor: pointer; font-size: 20px; transition: 0.2s; }
         .btn-help:hover { background: rgba(255, 255, 255, 0.4); }
         
-        /* 說明視窗 */
         #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 100; pointer-events: auto; justify-content: center; align-items: center; }
         .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
         .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
@@ -24,7 +22,6 @@
         .legend-item { display: flex; align-items: center; margin: 10px 0; }
         .legend-box { width: 30px; height: 15px; margin-right: 10px; border-radius: 2px; display: inline-block;}
         
-        /* 開始/結束畫面 */
         #start-screen { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
@@ -40,12 +37,10 @@
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
 
-        /* 排行榜區塊 */
         #leaderboard-section { 
             margin-top: 10px; background: rgba(255,255,255,0.08); 
             padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; 
-            overflow-y: auto; 
-            max-height: 250px;
+            overflow-y: auto; max-height: 250px;
         }
         .lb-header { font-size: 14px; color: #aaa; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .lb-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 2px; }
@@ -53,12 +48,10 @@
         .lb-name { flex-grow: 1; text-align: left; padding-left: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
         
-        /* 輸入框區塊 */
         #input-section { display: none; margin-bottom: 15px; width: 100%; }
         #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; }
         #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; }
         #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
-        
         #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
     </style>
 </head>
@@ -124,15 +117,13 @@
     </div>
 
 <script>
-    // 您的 Google Apps Script 網址 (已包含在內)
+    // 您的 Google Apps Script 網址
     const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
     const hpEl = document.getElementById('hp-display');
-    
-    // UI 元件
     const startScreen = document.getElementById('start-screen');
     const startTitle = document.getElementById('start-title');
     const startDesc = document.getElementById('start-desc');
@@ -140,8 +131,6 @@
     const modalOverlay = document.getElementById('modal-overlay');
     const pauseText = document.getElementById('pause-text');
     const leaderboardList = document.getElementById('leaderboard-list');
-    
-    // 輸入框元件
     const nameInput = document.getElementById('player-name-input');
     const submitBtn = document.getElementById('submit-btn');
     const loadingText = document.getElementById('loading-text');
@@ -180,37 +169,41 @@
     const keys = { left: false, right: false };
     let platforms = [];
 
-    // --- 排行榜 API 功能 (修正版) ---
+    // --- 排行榜 API (修正讀取問題) ---
 
     function fetchLeaderboard() {
-        // 在請求前加上時間戳記，避免快取
+        // [環境檢查] 如果是 file:// 開頭，直接顯示提示
+        if (window.location.protocol === 'file:') {
+            leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>無法讀取排行榜</b><br>原因：您直接開啟了檔案。<br>瀏覽器安全機制禁止本地檔案讀取網路資料。<br><br><b>解決方法：</b><br>1. 使用 VSCode "Live Server"<br>2. 或上傳至 Github Pages</p>`;
+            return;
+        }
+
         const fetchUrl = API_URL + "?t=" + new Date().getTime();
 
         fetch(fetchUrl)
             .then(response => {
-                if (!response.ok) throw new Error("Network response was not ok");
-                return response.text(); // 先轉成文字，避免非 JSON 導致崩潰
+                if (!response.ok) throw new Error("Server Error");
+                return response.text();
             })
             .then(text => {
                 try {
-                    const data = JSON.parse(text); // 嘗試解析 JSON
+                    const data = JSON.parse(text);
                     leaderboardData = data;
                     renderLeaderboard(data);
                 } catch (e) {
-                    console.error("JSON 解析錯誤 (可能收到 HTML):", text);
-                    // 這種情況通常是 GAS 權限沒開成「任何人」
-                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取錯誤<br>請檢查 GAS 權限<br>(詳見 Console)</p>`;
+                    console.error("JSON Error:", text);
+                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>格式錯誤 (JSON Error)</p>`;
                 }
             })
             .catch(error => {
-                console.error('Fetch Error:', error);
-                leaderboardList.innerHTML = "<p style='font-size:14px; color:red;'>網路連線失敗</p>";
+                console.error('Network Error:', error);
+                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>網路連線失敗<br>(請檢查網路或 F12 Console)</p>`;
             });
     }
 
     function renderLeaderboard(data) {
         if (!data || data.length === 0) {
-            leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄，搶頭香！</p>";
+            leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>";
             return;
         }
         
@@ -243,20 +236,19 @@
         fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain' }, // 改用 text/plain 減少 CORS 預檢
             body: JSON.stringify({ name: name, score: score })
         })
         .then(() => {
-            // 因為 no-cors，我們假設送出後稍等一下就成功
             setTimeout(() => {
                 loadingText.style.display = 'none';
                 inputSection.style.display = 'none';
                 startDesc.style.display = 'block';
                 startDesc.innerHTML = "上傳成功！<br>點擊畫面重試";
                 
-                // 重新抓取排行榜 (這時候應該會有新資料)
+                // 如果是 file://，這裡雖然不能讀取，但至少不會報錯，且上傳是成功的
                 fetchLeaderboard(); 
-            }, 1200);
+            }, 1000);
         })
         .catch(err => {
             console.error(err);
@@ -273,6 +265,7 @@
 
     function checkHighscore(currentScore) {
         if (currentScore === 0) return false;
+        if (leaderboardData.length === 0) return true; // 如果讀不到榜單，預設允許輸入
         if (leaderboardData.length < 10) return true;
         const lastPlaceScore = leaderboardData[leaderboardData.length - 1].score;
         return currentScore > lastPlaceScore;
@@ -364,7 +357,6 @@
             inputSection.style.display = 'none';
         }
         
-        // 確保重新抓取一次排行榜
         fetchLeaderboard();
         startScreen.style.display = 'flex';
     }
@@ -393,13 +385,11 @@
             requestAnimationFrame(loop); return;
         }
 
-        // 物理運算
         if (keys.left) player.vx -= player.speed; if (keys.right) player.vx += player.speed;
         player.vx *= player.friction; player.x += player.vx;
         player.vy += player.gravity; player.y += player.vy;
         if (player.invincibleTimer > 0) player.invincibleTimer--;
 
-        // 生成與回血邏輯 (10層樓)
         if (frames % 60 === 0) { 
             let type = 'normal', rand = Math.random();
             if (score > 30) { if (rand < 0.3) type = 'spike'; else if (rand < 0.5) type = (Math.random()>0.5) ? 'conveyor_left' : 'conveyor_right'; } 
@@ -427,7 +417,6 @@
             if (p.y < -50) platforms.splice(index, 1);
         });
 
-        // 邊界修正
         if (player.x < 0) { player.x = 0; if (player.vx < 0) player.vx = 0; }
         else if (player.x + player.width > GAME_WIDTH) { player.x = GAME_WIDTH - player.width; if (player.vx > 0) player.vx = 0; }
 
