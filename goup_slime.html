@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>史萊姆上樓梯 - Slime Climb</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            background-color: #1a202c;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none; /* 防止手機滑動觸發捲動 */
+            user-select: none; /* 防止長按選取文字 */
+            -webkit-user-select: none;
+        }
+        canvas {
+            image-rendering: pixelated;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .pixel-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+        /* 載入動畫 */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 虛擬按鍵樣式 */
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: background 0.05s, transform 0.05s;
+            backdrop-filter: blur(4px);
+            cursor: pointer; /* 讓電腦版滑鼠移過去有手型 */
+        }
+        .touch-btn:active, .touch-btn.active {
+            background: rgba(255, 255, 255, 0.6);
+            transform: scale(0.95);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center text-white relative">
+
+    <!-- 遊戲容器 -->
+    <div class="relative w-full h-full max-w-[480px] max-h-[640px] flex items-center justify-center z-10">
+        <canvas id="gameCanvas" width="480" height="640" class="bg-gray-800 rounded-lg border-4 border-gray-600 w-full h-full object-contain"></canvas>
+        
+        <!-- UI: 規則按鈕 (右上角) -->
+        <button onclick="toggleRules()" class="absolute top-4 right-4 z-30 bg-gray-700/80 p-2 rounded-full hover:bg-gray-600 border border-gray-500 transition shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </button>
+
+        <!-- UI: 規則說明 Modal -->
+        <div id="rulesModal" class="hidden absolute inset-0 bg-black/95 z-40 flex flex-col items-center justify-center p-6 text-center rounded-lg">
+            <h2 class="text-2xl text-yellow-400 pixel-font mb-6">遊戲規則</h2>
+            <div class="text-sm space-y-4 text-gray-300 mb-8 max-w-xs text-left mx-auto">
+                <p>1. <span class="text-green-400">目標</span>：不斷向上跳躍，不要掉出畫面下方。</p>
+                <p>2. <span class="text-blue-400">操作</span>：使用左右鍵移動，空白鍵(或跳躍鈕)跳上踏板。</p>
+                <p>3. <span class="text-purple-400">角色</span>：每個角色有不同的物理特性(黏牆、二段跳等)。</p>
+                <p>4. <span class="text-red-400">連擊</span>：快速連續跳躍不同踏板可觸發 Fever 加分模式。</p>
+            </div>
+            <button onclick="toggleRules()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1">
+                關閉 / 繼續 (CLOSE)
+            </button>
+        </div>
+
+        <!-- UI: 倒數計時 -->
+        <div id="countdownOverlay" class="hidden absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+            <span id="countdownText" class="text-8xl font-bold text-yellow-400 pixel-font drop-shadow-[0_4px_0_rgba(0,0,0,1)] animate-bounce">3</span>
+        </div>
+        
+        <!-- UI: 角色選擇選單 -->
+        <div id="startScreen" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center rounded-lg p-6 text-center z-10">
+            <h1 class="text-3xl md:text-4xl text-green-400 mb-2 pixel-font tracking-tighter shadow-green-500/50 drop-shadow-lg">SLIME CLIMB</h1>
+            <p class="text-gray-400 mb-4 text-sm">史萊姆上樓梯</p>
+            
+            <p class="mb-2 text-yellow-300 blink pixel-font text-xs">SELECT CHARACTER</p>
+            
+            <div class="grid grid-cols-2 gap-3 mb-4 w-full max-w-sm">
+                <button onclick="selectChar('slime')" class="p-2 border-2 border-green-500 rounded hover:bg-green-900 transition flex flex-col items-center group bg-black/50">
+                    <div class="w-6 h-6 bg-green-500 rounded-full mb-1 group-hover:scale-110 transition"></div>
+                    <span class="font-bold text-green-400 text-sm">史萊姆</span>
+                    <span class="text-[10px] text-gray-400">均衡/黏牆</span>
+                </button>
+                <button onclick="selectChar('gargoyle')" class="p-2 border-2 border-gray-500 rounded hover:bg-gray-700 transition flex flex-col items-center group bg-black/50">
+                    <div class="w-6 h-6 bg-gray-500 rounded mb-1 group-hover:scale-110 transition"></div>
+                    <span class="font-bold text-gray-300 text-sm">石像鬼</span>
+                    <span class="text-[10px] text-gray-400">極穩/無慣性</span>
+                </button>
+                <button onclick="selectChar('ninja')" class="p-2 border-2 border-blue-500 rounded hover:bg-blue-900 transition flex flex-col items-center group bg-black/50">
+                    <div class="w-6 h-6 bg-blue-500 rounded-sm mb-1 group-hover:scale-110 transition"></div>
+                    <span class="font-bold text-blue-400 text-sm">忍者蛙</span>
+                    <span class="text-[10px] text-gray-400">高速/二段跳</span>
+                </button>
+                <button onclick="selectChar('boo')" class="p-2 border-2 border-purple-500 rounded hover:bg-purple-900 transition flex flex-col items-center group bg-black/50">
+                    <div class="w-6 h-6 bg-white/80 rounded-t-full mb-1 group-hover:scale-110 transition animate-pulse"></div>
+                    <span class="font-bold text-purple-300 text-sm">幽靈</span>
+                    <span class="text-[10px] text-gray-400">飄浮/緩降</span>
+                </button>
+            </div>
+
+            <!-- 操作設定 -->
+            <div class="flex items-center justify-center space-x-2 mt-2 bg-gray-800/50 p-2 rounded border border-gray-700">
+                <span class="text-xs text-gray-400">觸控按鍵位置:</span>
+                <button id="layoutToggleBtn" onclick="toggleControlLayout()" class="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600 border border-gray-500 text-white min-w-[80px]">
+                    標準 (左移/右跳)
+                </button>
+            </div>
+            
+            <p class="text-[10px] text-gray-500 mt-4">電腦：← → 移動，空白鍵跳躍</p>
+        </div>
+
+        <!-- UI: 遊戲結束與排行榜 -->
+        <div id="gameOverScreen" class="hidden absolute inset-0 bg-black/90 flex flex-col items-center justify-center rounded-lg p-6 z-20">
+            <h2 class="text-3xl text-red-500 mb-4 pixel-font">GAME OVER</h2>
+            <div class="text-xl mb-6">Score: <span id="finalScore" class="text-yellow-400 font-bold">0</span></div>
+            
+            <!-- 提交分數表單 -->
+            <div id="submitScoreForm" class="w-full max-w-xs mb-4">
+                <input type="text" id="playerName" placeholder="輸入名字 (Enter Name)" maxlength="10" 
+                    class="w-full p-2 bg-gray-800 border border-gray-600 rounded text-center text-white mb-2 focus:outline-none focus:border-yellow-500">
+                <button onclick="submitScore()" id="submitBtn" class="w-full py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded font-bold transition">
+                    上傳分數
+                </button>
+            </div>
+
+            <!-- 排行榜顯示區 -->
+            <div class="w-full bg-gray-800 rounded p-4 mb-4 h-48 overflow-y-auto border border-gray-700">
+                <h3 class="text-center text-blue-300 text-sm mb-2 border-b border-gray-600 pb-1">Top 10 Leaderboard</h3>
+                <div id="leaderboardContent" class="text-xs space-y-1">
+                    <p class="text-center text-gray-500">載入中...</p>
+                </div>
+            </div>
+
+            <button onclick="resetGame()" class="px-6 py-2 border border-white rounded hover:bg-white hover:text-black transition pixel-font text-sm">
+                TRY AGAIN
+            </button>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud" class="absolute top-2 left-2 text-white pixel-font text-xs z-0 hidden pointer-events-none drop-shadow-md">
+            SCORE: <span id="scoreDisplay">0</span>
+        </div>
+    </div>
+
+    <!-- UI: 觸控按鍵 (已移至最外層) -->
+    <!-- 
+       Mobile (預設): fixed, bottom-4, max-w-[480px], centered (覆蓋遊戲)
+       Desktop (lg): fixed, bottom-10, w-full, px-10 (不覆蓋遊戲，分居兩側)
+    -->
+    <div id="touchControls" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-6 pb-2 flex justify-between items-end z-50 pointer-events-none select-none 
+                                   lg:max-w-none lg:left-0 lg:translate-x-0 lg:bottom-10 lg:px-20 lg:pb-4">
+        
+        <!-- 方向鍵容器 -->
+        <div id="dpadContainer" class="flex gap-4 pointer-events-auto">
+            <div id="btnLeft" class="touch-btn w-16 h-16 active:bg-white/30" data-key="left">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            </div>
+            <div id="btnRight" class="touch-btn w-16 h-16 active:bg-white/30" data-key="right">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            </div>
+        </div>
+        <!-- 跳躍鍵容器 -->
+        <div id="actionContainer" class="pointer-events-auto">
+            <div id="btnJump" class="touch-btn w-20 h-20 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
+                <span class="text-sm">JUMP</span>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ================= CONFIGURATION =================
+    // ★ 請在此填入您的 Google Apps Script 網頁應用程式網址 ★
+    const API_URL = "https://script.google.com/macros/s/AKfycbzxouLCr0mttuEKZrDqul34PEj3fb9YmL1u-WSXppAgkVfBiTHr8mebZQuRfM-tJ3fy/exec"; 
+    // =================================================
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Game State
+    let gameState = 'MENU'; // MENU, COUNTDOWN, PLAYING, PAUSED, GAMEOVER
+    let previousState = 'MENU'; // For pause resume logic
+    let frames = 0;
+    let score = 0;
+    let cameraY = 0;
+    let cameraSpeed = 0.5;
+    let controlsLayout = 'standard'; // 'standard' (L:Move, R:Jump) or 'flipped'
+    
+    // Inputs
+    const keys = { right: false, left: false, space: false, spaceHeld: false };
+
+    // Game Objects
+    let player;
+    let platforms = [];
+    
+    // Character Definitions
+    const CHARACTERS = {
+        slime: { 
+            name: "史萊姆", color: "#4ade80", 
+            w: 24, h: 24, speed: 5, jumpForce: 13, gravity: 0.6, friction: 0.85, 
+            desc: "平衡型，黏牆", type: "slime" 
+        },
+        gargoyle: { 
+            name: "石像鬼", color: "#9ca3af", 
+            w: 28, h: 28, speed: 3.5, jumpForce: 11, gravity: 0.9, friction: 0.5, 
+            desc: "重裝型，無慣性", type: "gargoyle" 
+        },
+        ninja: { 
+            name: "忍者蛙", color: "#3b82f6", 
+            w: 20, h: 20, speed: 7, jumpForce: 12, gravity: 0.7, friction: 0.85, 
+            desc: "速度型，二段跳", type: "ninja" 
+        },
+        boo: { 
+            name: "幽靈", color: "#e9d5ff", 
+            w: 22, h: 22, speed: 4, jumpForce: 10, gravity: 0.35, friction: 0.92, 
+            desc: "飄浮型，按住緩降", type: "boo" 
+        }
+    };
+
+    // --- Classes ---
+
+    class Player {
+        constructor(charType) {
+            const stats = CHARACTERS[charType];
+            this.stats = stats;
+            this.type = charType;
+            this.x = canvas.width / 2;
+            this.y = canvas.height - 100;
+            this.vx = 0;
+            this.vy = 0;
+            this.w = stats.w;
+            this.h = stats.h;
+            this.onGround = false;
+            this.jumps = 0; // for double jump
+            this.wallSliding = false;
+        }
+
+        update() {
+            // Horizontal Movement
+            if (keys.right) this.vx += 0.8;
+            if (keys.left) this.vx -= 0.8;
+
+            // Friction & Speed Limit
+            this.vx *= this.stats.friction;
+            // Stone stops immediately
+            if (this.type === 'gargoyle' && !keys.right && !keys.left) this.vx *= 0.1; 
+            
+            // Max Speed Cap
+            if (this.vx > this.stats.speed) this.vx = this.stats.speed;
+            if (this.vx < -this.stats.speed) this.vx = -this.stats.speed;
+
+            // Apply X
+            this.x += this.vx;
+
+            // Wall Collision & Wrap/Block
+            if (this.x < 0) this.x = 0;
+            if (this.x + this.w > canvas.width) this.x = canvas.width - this.w;
+
+            // Gravity
+            let g = this.stats.gravity;
+            
+            // Boo: Float mechanic (hold space to fall slower)
+            if (this.type === 'boo' && keys.spaceHeld && this.vy > 0) {
+                g = 0.1; 
+            }
+            
+            // Slime: Wall Slide (Passive)
+            this.wallSliding = false;
+            if (this.type === 'slime' && !this.onGround && this.vy > 0) {
+                if ((this.x <= 0 && keys.left) || (this.x + this.w >= canvas.width && keys.right)) {
+                    this.wallSliding = true;
+                    g = 0.1; // Slower fall on wall
+                    this.vy *= 0.8; 
+                }
+            }
+
+            this.vy += g;
+            this.y += this.vy;
+
+            // Floor Collision (Basic AABB with platforms)
+            this.onGround = false;
+            platforms.forEach(p => {
+                if (this.vy >= 0 && // Falling down
+                    this.y + this.h <= p.y + p.h + this.vy && // Was above
+                    this.y + this.h >= p.y && // Intersects top
+                    this.x + this.w > p.x && // Horizontal overlap
+                    this.x < p.x + p.w
+                ) {
+                    this.y = p.y - this.h;
+                    this.vy = 0;
+                    this.onGround = true;
+                    this.jumps = 0; // Reset double jump
+                    
+                    // Platform Logic (e.g., Ice)
+                    if(p.type === 'ice') {
+                        this.vx *= 1.05; // Slippery
+                    }
+                }
+            });
+
+            // Fall Death Check
+            if (this.y > cameraY + canvas.height) {
+                gameOver();
+            }
+        }
+
+        jump() {
+            // Normal Jump
+            if (this.onGround) {
+                this.vy = -this.stats.jumpForce;
+                this.jumps = 1;
+            } 
+            // Wall Jump (Slime Only)
+            else if (this.type === 'slime' && this.wallSliding) {
+                this.vy = -this.stats.jumpForce;
+                this.vx = (this.x <= 0) ? 8 : -8; // Kick off wall
+            }
+            // Double Jump (Ninja Only)
+            else if (this.type === 'ninja' && this.jumps < 2) {
+                this.vy = -this.stats.jumpForce;
+                this.jumps++;
+                // Visual effect could go here
+            }
+        }
+
+        draw() {
+            ctx.fillStyle = this.stats.color;
+            
+            // Simple Animation Deformation
+            let drawW = this.w;
+            let drawH = this.h;
+            
+            if (Math.abs(this.vy) > 2) { // Stretch when jumping/falling
+                drawW *= 0.8;
+                drawH *= 1.1;
+            } else if (Math.abs(this.vx) > 1) { // Squish when running
+                drawW *= 1.1;
+                drawH *= 0.9;
+            }
+
+            // Draw Body
+            ctx.fillRect(this.x + (this.w - drawW)/2, this.y + (this.h - drawH), drawW, drawH);
+            
+            // Draw Eyes (Direction)
+            ctx.fillStyle = "white";
+            let eyeOffset = (this.vx > 0) ? 4 : (this.vx < 0) ? -4 : 0;
+            ctx.fillRect(this.x + this.w/2 + eyeOffset - 6, this.y + 6, 4, 4);
+            ctx.fillRect(this.x + this.w/2 + eyeOffset + 2, this.y + 6, 4, 4);
+        }
+    }
+
+    class Platform {
+        constructor(x, y, w, type = 'normal') {
+            this.x = x;
+            this.y = y;
+            this.w = w;
+            this.h = 16;
+            this.type = type; // normal, ice, breakable
+        }
+
+        draw() {
+            if (this.type === 'ice') ctx.fillStyle = '#a5f3fc';
+            else if (this.type === 'breakable') ctx.fillStyle = '#b45309';
+            else ctx.fillStyle = '#65a30d'; // mossy
+
+            ctx.fillRect(this.x, this.y, this.w, this.h);
+            
+            // Texture detail
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(this.x, this.y + this.h - 4, this.w, 4); // shadow
+        }
+    }
+
+    // --- Game Logic ---
+
+    function initGame(charType) {
+        player = new Player(charType);
+        platforms = [];
+        score = 0;
+        cameraY = 0;
+        cameraSpeed = 0.5; // Initial speed
+        frames = 0;
+        
+        // Starting platforms
+        platforms.push(new Platform(0, canvas.height - 20, canvas.width)); // Ground
+        for(let i=1; i<6; i++) {
+            generatePlatform(canvas.height - 100 * i);
+        }
+
+        // UI Reset
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('touchControls').classList.remove('pointer-events-none'); // Enable touch
+        
+        // Start Countdown Sequence
+        startCountdown();
+    }
+
+    function startCountdown() {
+        gameState = 'COUNTDOWN';
+        const overlay = document.getElementById('countdownOverlay');
+        const text = document.getElementById('countdownText');
+        overlay.classList.remove('hidden');
+        
+        let count = 3;
+        text.innerText = count;
+        
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                text.innerText = count;
+            } else if (count === 0) {
+                text.innerText = "GO!";
+                text.classList.add('text-green-400');
+                text.classList.remove('text-yellow-400');
+            } else {
+                clearInterval(timer);
+                overlay.classList.add('hidden');
+                text.classList.add('text-yellow-400');
+                text.classList.remove('text-green-400');
+                gameState = 'PLAYING';
+            }
+        }, 1000);
+        
+        // Ensure loop is running to draw static frame
+        gameLoop();
+    }
+
+    function toggleRules() {
+        const modal = document.getElementById('rulesModal');
+        const isHidden = modal.classList.contains('hidden');
+        
+        if (isHidden) {
+            // Opening rules
+            modal.classList.remove('hidden');
+            if (gameState === 'PLAYING' || gameState === 'COUNTDOWN') {
+                previousState = gameState;
+                gameState = 'PAUSED';
+            }
+        } else {
+            // Closing rules
+            modal.classList.add('hidden');
+            if (gameState === 'PAUSED') {
+                gameState = previousState;
+                // If resuming countdown, might be tricky, but simpler to just resume state. 
+                // Ideally countdown shouldn't be interruptible but simple pause is fine.
+                if (gameState === 'PLAYING') {
+                    // Resume loop
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+        }
+    }
+    
+    // Toggle Layout function
+    function toggleControlLayout() {
+        const btn = document.getElementById('layoutToggleBtn');
+        const touchContainer = document.getElementById('touchControls');
+        
+        if (controlsLayout === 'standard') {
+            controlsLayout = 'flipped';
+            btn.innerText = "反轉 (右移/左跳)";
+            touchContainer.style.flexDirection = 'row-reverse';
+        } else {
+            controlsLayout = 'standard';
+            btn.innerText = "標準 (左移/右跳)";
+            touchContainer.style.flexDirection = 'row';
+        }
+    }
+
+    function generatePlatform(yPos) {
+        const w = 80 + Math.random() * 60;
+        const x = Math.random() * (canvas.width - w);
+        let type = 'normal';
+        if (score > 500 && Math.random() > 0.8) type = 'ice';
+        platforms.push(new Platform(x, yPos, w, type));
+    }
+
+    function update() {
+        if (gameState !== 'PLAYING') return;
+        
+        frames++;
+
+        // Camera Auto-Scroll
+        // Difficulty scaling
+        cameraSpeed = 0.5 + (score / 5000); 
+        if (player.y < cameraY + 200) {
+            // Push camera up if player goes high
+            cameraY = player.y - 200;
+        } else {
+            // Auto scroll
+            cameraY -= cameraSpeed;
+        }
+
+        // Score Calculation (Inverted Y)
+        let currentHeight = Math.floor(-player.y + (canvas.height - 100));
+        if (currentHeight > score) score = currentHeight;
+        document.getElementById('scoreDisplay').innerText = score;
+
+        // Platform Management
+        // Add new platforms above
+        const highestPlatform = platforms[platforms.length - 1];
+        if (highestPlatform.y > cameraY - 50) { // Just above screen
+            generatePlatform(highestPlatform.y - (80 + Math.random() * 40));
+        }
+        // Remove old platforms
+        platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50);
+
+        player.update();
+    }
+
+    function draw() {
+        // Clear
+        ctx.fillStyle = '#1a202c'; // Dark BG
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(0, -cameraY);
+
+        // Draw Platforms
+        platforms.forEach(p => p.draw());
+
+        // Draw Player
+        if (player) player.draw();
+
+        // Draw "Lava/Void" Line below camera
+        ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
+        ctx.fillRect(0, cameraY + canvas.height, canvas.width, 10);
+
+        ctx.restore();
+        
+        // Draw Pause Overlay if needed
+        if (gameState === 'PAUSED') {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.font = "20px 'Press Start 2P'";
+            ctx.textAlign = "center";
+            ctx.fillText("PAUSED", canvas.width/2, canvas.height/2);
+        }
+    }
+
+    function gameLoop() {
+        if (gameState === 'PLAYING' || gameState === 'COUNTDOWN' || gameState === 'PAUSED') {
+            if (gameState === 'PLAYING') update();
+            draw();
+            if (gameState !== 'PAUSED') {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+    }
+
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        document.getElementById('finalScore').innerText = score;
+        
+        fetchLeaderboard(); 
+    }
+
+    function resetGame() {
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        document.getElementById('startScreen').classList.remove('hidden');
+        gameState = 'MENU';
+    }
+
+    function selectChar(type) {
+        initGame(type);
+    }
+
+    // --- Keyboard Inputs with Visual Feedback ---
+    
+    // Helper to toggle visual active state on virtual buttons
+    function setButtonState(btnId, isActive) {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            if (isActive) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    }
+
+    window.addEventListener('keydown', e => {
+        if (e.code === 'ArrowRight') {
+            keys.right = true;
+            setButtonState('btnRight', true);
+        }
+        if (e.code === 'ArrowLeft') {
+            keys.left = true;
+            setButtonState('btnLeft', true);
+        }
+        if (e.code === 'Space') {
+            keys.spaceHeld = true;
+            setButtonState('btnJump', true);
+            if (!keys.space && gameState === 'PLAYING') {
+                player.jump();
+                keys.space = true;
+            }
+        }
+    });
+
+    window.addEventListener('keyup', e => {
+        if (e.code === 'ArrowRight') {
+            keys.right = false;
+            setButtonState('btnRight', false);
+        }
+        if (e.code === 'ArrowLeft') {
+            keys.left = false;
+            setButtonState('btnLeft', false);
+        }
+        if (e.code === 'Space') {
+            keys.space = false;
+            keys.spaceHeld = false;
+            setButtonState('btnJump', false);
+        }
+    });
+
+    // --- Inputs (Touch) ---
+    // Prevent default context menu on long press
+    window.addEventListener('contextmenu', event => event.preventDefault());
+
+    function handleTouch(key, isPressed) {
+        if (key === 'left') keys.left = isPressed;
+        if (key === 'right') keys.right = isPressed;
+        if (key === 'space') {
+            if (isPressed) {
+                keys.spaceHeld = true;
+                if (!keys.space && gameState === 'PLAYING') {
+                    player.jump();
+                    keys.space = true;
+                }
+            } else {
+                keys.space = false;
+                keys.spaceHeld = false;
+            }
+        }
+    }
+
+    // Attach listeners to virtual buttons
+    const touchButtons = document.querySelectorAll('.touch-btn');
+    touchButtons.forEach(btn => {
+        const key = btn.dataset.key;
+        
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent scroll/zoom
+            btn.classList.add('active');
+            handleTouch(key, true);
+        }, { passive: false });
+
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            btn.classList.remove('active');
+            handleTouch(key, false);
+        }, { passive: false });
+        
+        // Handle case where finger slides off button
+        btn.addEventListener('touchcancel', (e) => {
+             e.preventDefault();
+             btn.classList.remove('active');
+             handleTouch(key, false);
+        });
+    });
+
+    // --- API Integration ---
+
+    async function fetchLeaderboard() {
+        const list = document.getElementById('leaderboardContent');
+        list.innerHTML = '<div class="text-center text-gray-500 mt-4"><div class="loader mx-auto mb-2"></div>Loading...</div>';
+
+        if(API_URL.includes("YOUR_GAS")) {
+            list.innerHTML = '<p class="text-red-400 text-center">API URL 未設定</p>';
+            return;
+        }
+
+        try {
+            const res = await fetch(API_URL + "?t=" + new Date().getTime());
+            const json = await res.json();
+            
+            if (json.status === 'success') {
+                let html = '';
+                json.data.forEach((item, index) => {
+                    let color = index === 0 ? 'text-yellow-400' : (index === 1 ? 'text-gray-300' : (index === 2 ? 'text-orange-400' : 'text-gray-400'));
+                    html += `
+                        <div class="flex justify-between border-b border-gray-700 py-1">
+                            <span class="${color} font-bold">${index + 1}. ${escapeHtml(item.name)}</span>
+                            <span class="text-white">${item.score}</span>
+                        </div>`;
+                });
+                list.innerHTML = html || '<p class="text-center">暫無紀錄</p>';
+            }
+        } catch (e) {
+            console.error(e);
+            list.innerHTML = '<p class="text-red-500 text-center">連線失敗</p>';
+        }
+    }
+
+    async function submitScore() {
+        const nameInput = document.getElementById('playerName');
+        const btn = document.getElementById('submitBtn');
+        const name = nameInput.value.trim() || "Anonymous";
+        
+        if(API_URL.includes("YOUR_GAS")) {
+            alert("請先設定正確的 API URL");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "上傳中...";
+
+        try {
+            const targetUrl = `${API_URL}?action=add&name=${encodeURIComponent(name)}&score=${score}`;
+            const res = await fetch(targetUrl);
+            
+            await fetchLeaderboard();
+            btn.innerText = "上傳成功!";
+            setTimeout(() => {
+                btn.innerText = "上傳分數";
+                btn.disabled = false;
+            }, 2000);
+        } catch (e) {
+            console.error(e);
+            btn.innerText = "失敗，請重試";
+            btn.disabled = false;
+        }
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+</script>
+</body>
+</html>
