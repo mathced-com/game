@@ -15,6 +15,7 @@
             --accent-orange: #ff9900; /* 五子棋：霓虹橘 */
             --accent-red: #ff3333;    /* 華容道：赤紅 */
             --accent-purple: #d500f9; /* 數字方塊：霓虹紫 */
+            --accent-green: #39ff14;  /* 史萊姆：霓虹綠 */
             --accent-gray: #888888;   /* 待新增：灰色 */
         }
 
@@ -83,7 +84,7 @@
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             display: flex;
-            flex-direction: column; /* 改為垂直排列 */
+            flex-direction: column;
             align-items: center;
             justify-content: center;
         }
@@ -113,6 +114,12 @@
         .game-card.style-puzzle:hover {
             border-color: var(--accent-purple);
             box-shadow: 0 0 20px rgba(213, 0, 249, 0.4);
+        }
+
+        /* 新增：史萊姆配色 */
+        .game-card.style-slime:hover {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
         }
 
         /* --- 持續新增中區塊樣式 --- */
@@ -146,10 +153,10 @@
             font-size: 0.9rem;
             color: #aaa;
             display: block;
-            margin-bottom: 15px; /* 增加底部距離給統計數字 */
+            margin-bottom: 15px;
         }
 
-        /* --- 新增：點擊數統計樣式 --- */
+        /* --- 點擊數統計樣式 --- */
         .click-stat {
             font-size: 0.85rem;
             color: #eee;
@@ -157,7 +164,7 @@
             padding: 5px 12px;
             border-radius: 20px;
             display: inline-block;
-            margin-top: auto; /* 將統計推到底部 */
+            margin-top: auto;
         }
 
         /* --- 頁尾 --- */
@@ -213,6 +220,13 @@
             <div class="click-stat">🔥 人氣：載入中...</div>
         </a>
 
+        <a href="godown_slime.html" target="_blank" rel="noopener noreferrer" class="game-card style-slime">
+            <span class="icon">🟢🪜</span>
+            <span class="game-title">史萊姆下樓梯</span>
+            <span class="game-desc">經典反應閃避遊戲<br>(NS-SHAFT Style)</span>
+            <div class="click-stat">🔥 人氣：載入中...</div>
+        </a>
+
         <div class="game-card coming-soon">
             <span class="icon">🚧🚀</span>
             <span class="game-title">持續新增中...</span>
@@ -226,29 +240,25 @@
     </footer>
 
     <script>
-        // 您的 GAS 網址 (doGet 與 doPost 共用同一個網址)
+        // 您的 GAS 網址
         const TRACKING_URL = "https://script.google.com/macros/s/AKfycbyUceK5jxOPxegHWwBGQH1BUPcFXXxqA7BGjKftaBsV0wpUvghvfxRT62V46kBvh9dAlA/exec"; 
 
         const cards = document.querySelectorAll('.game-card');
 
         // --- 功能 1: 網頁載入時，讀取人氣數據 ---
         window.onload = function() {
-            fetch(TRACKING_URL) // 預設就是 GET 請求
+            fetch(TRACKING_URL) 
             .then(response => response.json())
             .then(data => {
-                // data 格式例如: { "五子棋大師": 10, "三國華容道": 5 }
                 cards.forEach(card => {
-                    // 排除 coming-soon
                     if(card.classList.contains('coming-soon')) return;
 
                     const titleEl = card.querySelector('.game-title');
                     const statEl = card.querySelector('.click-stat');
                     const gameName = titleEl ? titleEl.innerText : "";
 
-                    // 從回傳資料中查找對應名稱的次數，若無則為 0
                     const count = data[gameName] || 0;
                     
-                    // 更新顯示
                     if(statEl) {
                         statEl.innerText = `🔥 人氣：${count}`;
                     }
@@ -256,7 +266,6 @@
             })
             .catch(err => {
                 console.error("讀取人氣失敗:", err);
-                // 失敗時不需特別處理，維持"載入中"或可改成隱藏
             });
         };
 
@@ -266,18 +275,17 @@
 
             card.addEventListener('click', function(e) {
                 const titleElement = this.querySelector('.game-title');
-                const statElement = this.querySelector('.click-stat'); // 抓取統計文字框
+                const statElement = this.querySelector('.click-stat');
                 const gameName = titleElement ? titleElement.innerText : "未知遊戲";
 
-                // 1. 視覺上先 +1 (讓使用者感覺很即時)
+                // 視覺上先 +1
                 if(statElement && statElement.innerText.includes("人氣")) {
-                    // 提取目前的數字
                     let currentText = statElement.innerText;
-                    let currentCount = parseInt(currentText.replace(/\D/g, '')) || 0; // 取出數字
+                    let currentCount = parseInt(currentText.replace(/\D/g, '')) || 0;
                     statElement.innerText = `🔥 人氣：${currentCount + 1}`;
                 }
 
-                // 2. 背景發送資料
+                // 背景發送資料
                 const payload = { gameName: gameName };
 
                 fetch(TRACKING_URL, {
