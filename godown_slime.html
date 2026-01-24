@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>史萊姆下樓梯 - 最終修正版</title>
+    <title>史萊姆下樓梯 - 平板輸入修正版</title>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
@@ -49,8 +49,19 @@
         .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
         
         #input-section { display: none; margin-bottom: 15px; width: 100%; }
-        #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; }
-        #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; }
+        
+        /* [修正重點 1] 對輸入框強制啟用觸控操作，並確保層級最高 */
+        #player-name-input { 
+            padding: 10px; border-radius: 5px; border: none; width: 55%; 
+            text-align: center; font-size: 16px; outline: none;
+            touch-action: auto !important; /* 允許瀏覽器處理這裡的觸控 */
+            user-select: text !important;  /* 允許選取文字 */
+            -webkit-user-select: text !important;
+            z-index: 1000; /* 確保在最上層 */
+            position: relative;
+        }
+        
+        #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; touch-action: manipulation;}
         #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
         #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
     </style>
@@ -117,7 +128,6 @@
     </div>
 
 <script>
-    // 您的 Google Apps Script 網址
     const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
 
     const canvas = document.getElementById('gameCanvas');
@@ -169,12 +179,10 @@
     const keys = { left: false, right: false };
     let platforms = [];
 
-    // --- 排行榜 API (修正讀取問題) ---
-
+    // --- 排行榜 API ---
     function fetchLeaderboard() {
-        // [環境檢查] 如果是 file:// 開頭，直接顯示提示
         if (window.location.protocol === 'file:') {
-            leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>無法讀取排行榜</b><br>原因：您直接開啟了檔案。<br>瀏覽器安全機制禁止本地檔案讀取網路資料。<br><br><b>解決方法：</b><br>1. 使用 VSCode "Live Server"<br>2. 或上傳至 Github Pages</p>`;
+            leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地模式限制</b><br>請使用 Live Server 或上傳至網站<br>才能讀取排行榜。</p>`;
             return;
         }
 
@@ -192,12 +200,12 @@
                     renderLeaderboard(data);
                 } catch (e) {
                     console.error("JSON Error:", text);
-                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>格式錯誤 (JSON Error)</p>`;
+                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取錯誤</p>`;
                 }
             })
             .catch(error => {
                 console.error('Network Error:', error);
-                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>網路連線失敗<br>(請檢查網路或 F12 Console)</p>`;
+                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>網路連線失敗</p>`;
             });
     }
 
@@ -209,26 +217,18 @@
         
         let html = "";
         const top10 = data.slice(0, 10);
-        
         top10.forEach((item, index) => {
             let rankColor = "#fff";
             if(index === 0) rankColor = "#f1c40f"; 
             if(index === 1) rankColor = "#bdc3c7"; 
             if(index === 2) rankColor = "#e67e22"; 
-            
-            html += `
-            <div class="lb-row">
-                <span class="lb-rank" style="color:${rankColor}">${index + 1}.</span>
-                <span class="lb-name">${escapeHtml(item.name)}</span>
-                <span class="lb-score">${item.score}F</span>
-            </div>`;
+            html += `<div class="lb-row"><span class="lb-rank" style="color:${rankColor}">${index + 1}.</span><span class="lb-name">${escapeHtml(item.name)}</span><span class="lb-score">${item.score}F</span></div>`;
         });
         leaderboardList.innerHTML = html;
     }
 
     function submitScore() {
         const name = nameInput.value.trim() || "無名氏";
-        
         submitBtn.disabled = true;
         submitBtn.style.backgroundColor = "#555";
         loadingText.style.display = 'block';
@@ -236,7 +236,7 @@
         fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors', 
-            headers: { 'Content-Type': 'text/plain' }, // 改用 text/plain 減少 CORS 預檢
+            headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({ name: name, score: score })
         })
         .then(() => {
@@ -245,8 +245,6 @@
                 inputSection.style.display = 'none';
                 startDesc.style.display = 'block';
                 startDesc.innerHTML = "上傳成功！<br>點擊畫面重試";
-                
-                // 如果是 file://，這裡雖然不能讀取，但至少不會報錯，且上傳是成功的
                 fetchLeaderboard(); 
             }, 1000);
         })
@@ -265,14 +263,13 @@
 
     function checkHighscore(currentScore) {
         if (currentScore === 0) return false;
-        if (leaderboardData.length === 0) return true; // 如果讀不到榜單，預設允許輸入
+        if (leaderboardData.length === 0) return true; 
         if (leaderboardData.length < 10) return true;
         const lastPlaceScore = leaderboardData[leaderboardData.length - 1].score;
         return currentScore > lastPlaceScore;
     }
 
-    // --- 遊戲邏輯 ---
-
+    // --- 繪圖邏輯 ---
     function drawSpikes(ctx,x,y,w,h){ctx.fillStyle='#ff4757';ctx.beginPath();const c=Math.floor(w/10),s=w/c;ctx.moveTo(x,y+h);for(let i=0;i<=c;i++){ctx.lineTo(x+i*s-s/2,y);ctx.lineTo(x+i*s,y+h)}ctx.fill()}
     function drawConveyor(ctx,x,y,w,h,d){ctx.fillStyle='#1e90ff';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=3;let f=(d==='left')?-1:1,o=(frames*1.5*f)%20;ctx.beginPath();for(let i=-20;i<w+20;i+=15){let dx=x+i+o;if(dx>x&&dx<x+w){ctx.moveTo(dx,y);ctx.lineTo(dx+(d==='left'?-5:5),y+h)}}ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h)}
     function drawSlime(ctx,x,y,w,h){ctx.fillStyle=player.color;let t=-player.vx*3;ctx.beginPath();ctx.arc(x+w/2,y+h-10,w/2,0,Math.PI,false);ctx.bezierCurveTo(x,y+h-10,x+w/2+t,y,x+w,y+h-10);ctx.fill();let eo=player.vx*2,ey=y+h-12;ctx.fillStyle='white';ctx.beginPath();ctx.arc(x+w/2-6+eo,ey,4,0,Math.PI*2);ctx.arc(x+w/2+6+eo,ey,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='black';ctx.beginPath();ctx.arc(x+w/2-6+eo+(player.vx>0?1:-1),ey,1.5,0,Math.PI*2);ctx.arc(x+w/2+6+eo+(player.vx>0?1:-1),ey,1.5,0,Math.PI*2);ctx.fill();if(player.invincibleTimer>0){ctx.beginPath();ctx.arc(x+w/2+eo,ey+8,3,0,Math.PI*2);ctx.fill()}else{ctx.beginPath();ctx.arc(x+w/2+eo,ey+6,5,0.2*Math.PI,0.8*Math.PI);ctx.stroke()}}
@@ -310,8 +307,10 @@
     }
 
     function startGameClick(e) {
+        // [修正重點 3] 嚴格防止點擊輸入框時觸發遊戲開始
         if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return;
-        if (inputSection.style.display === 'block') return;
+        if (inputSection.style.display === 'block') return; // 如果正在顯示輸入框，背景也不能點
+
         if (gameState === 'MENU' || gameState === 'GAMEOVER') {
             startCountdown();
         }
@@ -396,7 +395,6 @@
             else if (score > 10) { if (rand < 0.2) type = (Math.random()>0.5) ? 'conveyor_left' : 'conveyor_right'; }
             platforms.push(new Platform(GAME_HEIGHT, type));
             score++;
-            
             player.floorsSinceLastHeal++;
             if (player.floorsSinceLastHeal >= 10) { 
                 if (player.hp < 100) { player.hp += 34; if(player.hp > 100) player.hp = 100; } 
@@ -428,21 +426,35 @@
 
     window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') keys.left = true; if (e.code === 'ArrowRight') keys.right = true; });
     window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') keys.left = false; if (e.code === 'ArrowRight') keys.right = false; });
+
+    // [修正重點 2] 觸控事件處理 - 嚴格排除輸入框
     window.addEventListener('touchstart', (e) => {
+        // 如果點到按鈕、Overlay、輸入框、送出按鈕，完全不進行任何遊戲邏輯
         if (e.target.closest('.btn-help') || e.target.closest('#modal-overlay') || e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return;
+        
         e.preventDefault();
         if (gameState === 'MENU' || gameState === 'GAMEOVER') { startGameClick(e); return; }
         for (let i = 0; i < e.touches.length; i++) { if (e.touches[i].clientX < window.innerWidth / 2) keys.left = true; else keys.right = true; }
     }, { passive: false });
+
     window.addEventListener('touchend', (e) => {
-        e.preventDefault(); let l=false, r=false;
+        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn') return; // 輸入框放開也不要干擾
+        
+        e.preventDefault(); 
+        let l=false, r=false;
         for (let i = 0; i < e.touches.length; i++) { if (e.touches[i].clientX < window.innerWidth / 2) l = true; else r = true; }
         keys.left = l; keys.right = r;
     });
+
+    // [修正重點 4] 額外監聽：當點擊輸入框時，強制取得焦點 (有些瀏覽器需要)
+    nameInput.addEventListener('touchstart', function(e) {
+        e.stopPropagation(); // 阻止事件冒泡到 window
+        this.focus();        // 強制鍵盤彈出
+    });
+
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) toggleHelp(false); });
     startScreen.addEventListener('click', startGameClick);
 
-    // 程式啟動
     fetchLeaderboard();
     gameState = 'MENU';
     loop(); 
