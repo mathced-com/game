@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - 最終完美版</title>
+    <title>史萊姆下樓梯 - 完美穩定版</title>
     <style>
         body { 
             margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
@@ -43,7 +43,6 @@
             #controls-layer.align-right .control-btn { margin-right: 0; margin-left: 20px; }
         }
         .control-btn { width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; margin-right: 20px; margin-left: 0; display: flex; justify-content: center; align-items: center; color: white; font-size: 40px; font-weight: bold; user-select: none; -webkit-user-select: none; transition: all 0.1s; backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; }
-        /* Active 樣式增加一點發光感 */
         .control-btn.active { background-color: rgba(255, 255, 255, 0.8); color: #000; transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 210, 211, 0.8); border-color: #00d2d3; }
 
         /* Start Screen */
@@ -166,8 +165,21 @@
     </div>
 
 <script>
+    // --- 1. 全域變數定義 (最優先執行，確保所有函式都讀得到) ---
+    
+    // Google Apps Script URL
     const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
 
+    // 角色資料定義 (移到最上方，修復角色選單與繪圖崩潰問題)
+    const characters = [
+        { id: 'slime', name: '史萊姆', color: '#00d2d3' },
+        { id: 'cube', name: '方塊仔', color: '#ff9f43' },
+        { id: 'ghost', name: '幽靈', color: '#a29bfe' },
+        { id: 'bunny', name: '兔子', color: '#ff7675' }
+    ];
+    let currentCharIndex = 0; 
+
+    // DOM 元素獲取
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -188,19 +200,9 @@
     const btnSound = document.getElementById('btn-sound');
     const charListContainer = document.getElementById('char-list-container');
 
+    // 遊戲參數
     let GAME_WIDTH = 600; 
     let GAME_HEIGHT = 800;
-
-    function resize() {
-        const isMobile = window.innerWidth < 600;
-        GAME_WIDTH = isMobile ? window.innerWidth : 600;
-        GAME_HEIGHT = window.innerHeight;
-        canvas.width = GAME_WIDTH;
-        canvas.height = GAME_HEIGHT;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
     let gameState = 'MENU';
     let previousState = 'MENU';
     let score = 0;
@@ -209,11 +211,133 @@
     let countdownVal = 3;
     let leaderboardData = []; 
     let isMouseDown = false;
-    
-    // 音效
     let isMuted = true;
     let audioCtx = null;
 
+    // 玩家物件
+    const player = {
+        x: 0, y: 100, width: 30, height: 30,
+        color: '#00d2d3',
+        vx: 0, vy: 0,
+        speed: 0.8, friction: 0.9, gravity: 0.5,
+        hp: 100,
+        invincibleTimer: 0,
+        floorsSinceLastHeal: 0 
+    };
+
+    const keys = { left: false, right: false };
+    let platforms = [];
+
+    // --- 2. 核心繪圖函式 (確保在初始化前已被定義) ---
+
+    // 繪製角色 (通用函數：支援遊戲本體與選單預覽)
+    function drawCharacter(ctx, p, overrideType = null) {
+        // 安全檢查：防止陣列未定義導致崩潰
+        if (!characters || characters.length === 0) return;
+
+        const charType = overrideType || characters[currentCharIndex].id;
+        const x = p.x; const y = p.y; const w = p.width; const h = p.height;
+        
+        ctx.fillStyle = p.color;
+        
+        if (charType === 'slime') {
+            let tilt = -p.vx * 3;
+            ctx.beginPath();
+            ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false);
+            ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10);
+            ctx.fill();
+        } else if (charType === 'cube') {
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+        } else if (charType === 'ghost') {
+            let wave = 0;
+            // 只有遊戲進行中才波動
+            if (!overrideType) wave = Math.sin(frames * 0.2) * 2;
+            ctx.beginPath();
+            ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); 
+            ctx.lineTo(x + w, y + h + wave);
+            ctx.lineTo(x + w/2, y + h - wave);
+            ctx.lineTo(x, y + h + wave);
+            ctx.fill();
+        } else if (charType === 'bunny') {
+            let earTilt = p.vx * 2;
+            ctx.beginPath(); 
+            ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2);
+            ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath(); 
+            ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // 表情
+        let eyeOffset = p.vx * 2;
+        let eyeY = y + h - 15;
+        if(charType === 'ghost') eyeY = y + 12;
+        if(charType === 'bunny') eyeY = y + 15;
+        if(charType === 'cube') eyeY = y + 10;
+
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(x + w/2 - 7 + eyeOffset, eyeY, 4, 0, Math.PI*2);
+        ctx.arc(x + w/2 + 7 + eyeOffset, eyeY, 4, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        let pupilX = (p.vx > 0) ? 1 : (p.vx < 0 ? -1 : 0);
+        ctx.arc(x + w/2 - 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2);
+        ctx.arc(x + w/2 + 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2);
+        ctx.fill();
+
+        if(p.invincibleTimer > 0) {
+             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); 
+        } else {
+             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); 
+        }
+    }
+
+    // 初始化角色選單
+    function initCharSelect() {
+        if (!charListContainer) return;
+        charListContainer.innerHTML = '';
+        characters.forEach((char, index) => {
+            const containerDiv = document.createElement('div');
+            containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`;
+            containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
+
+            const iconBox = document.createElement('div');
+            iconBox.className = 'char-icon-box';
+            
+            const cvs = document.createElement('canvas');
+            cvs.width = 30; cvs.height = 30;
+            const c = cvs.getContext('2d');
+            // 繪製靜態預覽
+            drawCharacter(c, { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 }, char.id);
+            
+            iconBox.appendChild(cvs);
+            containerDiv.appendChild(iconBox);
+
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'char-name';
+            nameLabel.innerText = char.name;
+            containerDiv.appendChild(nameLabel);
+
+            charListContainer.appendChild(containerDiv);
+        });
+    }
+
+    function selectCharacter(index) {
+        currentCharIndex = index;
+        player.color = characters[index].color;
+        const options = document.querySelectorAll('.char-option');
+        options.forEach((opt, i) => {
+            if(i === index) opt.classList.add('selected');
+            else opt.classList.remove('selected');
+        });
+    }
+
+    // --- 音效系統 ---
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -244,13 +368,12 @@
             gain.connect(audioCtx.destination);
             const now = audioCtx.currentTime;
 
-            if (type === 'count') { // [新增] 倒數音效
+            if (type === 'count') {
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(600, now);
                 gain.gain.setValueAtTime(0.1, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
             } else if (type === 'jump') {
                 osc.type = 'sine'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
                 gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
@@ -271,111 +394,16 @@
         } catch(e) { console.warn("Audio Error", e); }
     }
 
-    // --- 角色系統 ---
-    const characters = [
-        { id: 'slime', name: '史萊姆', color: '#00d2d3' },
-        { id: 'cube', name: '方塊仔', color: '#ff9f43' },
-        { id: 'ghost', name: '幽靈', color: '#a29bfe' },
-        { id: 'bunny', name: '兔子', color: '#ff7675' }
-    ];
-    let currentCharIndex = 0; 
-
-    function initCharSelect() {
-        charListContainer.innerHTML = '';
-        characters.forEach((char, index) => {
-            const containerDiv = document.createElement('div');
-            containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`;
-            containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
-
-            const iconBox = document.createElement('div');
-            iconBox.className = 'char-icon-box';
-            
-            const cvs = document.createElement('canvas');
-            cvs.width = 30; cvs.height = 30;
-            const c = cvs.getContext('2d');
-            drawCharacter(c, { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 }, char.id);
-            
-            iconBox.appendChild(cvs);
-            containerDiv.appendChild(iconBox);
-
-            const nameLabel = document.createElement('div');
-            nameLabel.className = 'char-name';
-            nameLabel.innerText = char.name;
-            containerDiv.appendChild(nameLabel);
-
-            charListContainer.appendChild(containerDiv);
-        });
+    // --- 系統功能 ---
+    function resize() {
+        const isMobile = window.innerWidth < 600;
+        GAME_WIDTH = isMobile ? window.innerWidth : 600;
+        GAME_HEIGHT = window.innerHeight;
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
     }
-
-    function selectCharacter(index) {
-        currentCharIndex = index;
-        player.color = characters[index].color;
-        const options = document.querySelectorAll('.char-option');
-        options.forEach((opt, i) => {
-            if(i === index) opt.classList.add('selected');
-            else opt.classList.remove('selected');
-        });
-    }
-
-    function drawCharacter(ctx, p, overrideType = null) {
-        const charType = overrideType || characters[currentCharIndex].id;
-        const x = p.x; const y = p.y; const w = p.width; const h = p.height;
-        ctx.fillStyle = p.color;
-        
-        if (charType === 'slime') {
-            let tilt = -p.vx * 3;
-            ctx.beginPath();
-            ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false);
-            ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10);
-            ctx.fill();
-        } else if (charType === 'cube') {
-            ctx.fillRect(x, y, w, h);
-            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-        } else if (charType === 'ghost') {
-            let wave = 0;
-            if (!overrideType) wave = Math.sin(frames * 0.2) * 2;
-            ctx.beginPath();
-            ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); 
-            ctx.lineTo(x + w, y + h + wave);
-            ctx.lineTo(x + w/2, y + h - wave);
-            ctx.lineTo(x, y + h + wave);
-            ctx.fill();
-        } else if (charType === 'bunny') {
-            let earTilt = p.vx * 2;
-            ctx.beginPath(); 
-            ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2);
-            ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2);
-            ctx.fill();
-            ctx.beginPath(); 
-            ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2);
-            ctx.fill();
-        }
-
-        let eyeOffset = p.vx * 2;
-        let eyeY = y + h - 15;
-        if(charType === 'ghost') eyeY = y + 12;
-        if(charType === 'bunny') eyeY = y + 15;
-        if(charType === 'cube') eyeY = y + 10;
-
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(x + w/2 - 7 + eyeOffset, eyeY, 4, 0, Math.PI*2);
-        ctx.arc(x + w/2 + 7 + eyeOffset, eyeY, 4, 0, Math.PI*2);
-        ctx.fill();
-
-        ctx.fillStyle = 'black';
-        ctx.beginPath();
-        let pupilX = (p.vx > 0) ? 1 : (p.vx < 0 ? -1 : 0);
-        ctx.arc(x + w/2 - 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2);
-        ctx.arc(x + w/2 + 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2);
-        ctx.fill();
-
-        if(p.invincibleTimer > 0) {
-             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); 
-        } else {
-             ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); 
-        }
-    }
+    window.addEventListener('resize', resize);
+    resize();
 
     function setControlSide(side) {
         const btns = document.querySelectorAll('.setting-btn');
@@ -387,19 +415,6 @@
             btns[0].classList.remove('selected'); btns[1].classList.add('selected');
         }
     }
-
-    const player = {
-        x: 0, y: 100, width: 30, height: 30,
-        color: '#00d2d3',
-        vx: 0, vy: 0,
-        speed: 0.8, friction: 0.9, gravity: 0.5,
-        hp: 100,
-        invincibleTimer: 0,
-        floorsSinceLastHeal: 0 
-    };
-
-    const keys = { left: false, right: false };
-    let platforms = [];
 
     function drawSpikes(ctx,x,y,w,h){ctx.fillStyle='#ff4757';ctx.beginPath();const c=Math.floor(w/10),s=w/c;ctx.moveTo(x,y+h);for(let i=0;i<=c;i++){ctx.lineTo(x+i*s-s/2,y);ctx.lineTo(x+i*s,y+h)}ctx.fill()}
     function drawConveyor(ctx,x,y,w,h,d){ctx.fillStyle='#1e90ff';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=3;let f=(d==='left')?-1:1,o=(frames*1.5*f)%20;ctx.beginPath();for(let i=-20;i<w+20;i+=15){let dx=x+i+o;if(dx>x&&dx<x+w){ctx.moveTo(dx,y);ctx.lineTo(dx+(d==='left'?-5:5),y+h)}}ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h)}
@@ -452,12 +467,10 @@
         startScreen.style.display = 'none';
         countdownVal = 3;
         resetGameData();
-        // [新增] 3 的時候就叫一聲
         playTone('count');
         let timer = setInterval(() => {
             if (gameState === 'PAUSED') return;
             countdownVal--;
-            // [新增] 2, 1 的時候叫一聲
             if (countdownVal > 0) playTone('count');
             
             if (countdownVal <= 0) {
@@ -578,7 +591,6 @@
     }
 
     // --- 事件監聽 ---
-    // [修正 1] 鍵盤同步點亮虛擬按鈕
     window.addEventListener('keydown', (e) => { 
         if (e.code === 'ArrowLeft') { keys.left = true; btnLeft.classList.add('active'); }
         if (e.code === 'ArrowRight') { keys.right = true; btnRight.classList.add('active'); }
@@ -634,9 +646,61 @@
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) toggleHelp(false); });
     startScreen.addEventListener('click', startGameClick);
 
+    // --- 排行榜 API ---
+    function fetchLeaderboard() {
+        if (window.location.protocol === 'file:') {
+            leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b><br>請上傳至網站<br>以讀取排行榜</p>`;
+            return;
+        }
+        const fetchUrl = API_URL + "?t=" + new Date().getTime();
+        fetch(fetchUrl)
+            .then(response => { if (!response.ok) throw new Error("Err"); return response.text(); })
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    leaderboardData = data;
+                    renderLeaderboard(data);
+                } catch (e) {
+                    console.error("JSON Err", text);
+                    leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取格式錯誤</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Net Err', error);
+                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS)</p>`;
+            });
+    }
+
+    function renderLeaderboard(data) {
+        if (!data || data.length === 0) {
+            leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>";
+            return;
+        }
+        let html = "";
+        const top10 = data.slice(0, 10);
+        top10.forEach((item, index) => {
+            let rankColor = "#fff";
+            if(index === 0) rankColor = "#f1c40f"; if(index === 1) rankColor = "#bdc3c7"; if(index === 2) rankColor = "#e67e22"; 
+            html += `<div class="lb-row"><span class="lb-rank" style="color:${rankColor}">${index + 1}.</span><span class="lb-name">${escapeHtml(item.name)}</span><span class="lb-score">${item.score}F</span></div>`;
+        });
+        leaderboardList.innerHTML = html;
+    }
+
+    function submitScore() {
+        const name = nameInput.value.trim() || "無名氏";
+        submitBtn.disabled = true; submitBtn.style.backgroundColor = "#555"; loadingText.style.display = 'block';
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) })
+        .then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); })
+        .catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
+    }
+
+    function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+    function checkHighscore(currentScore) { if (currentScore === 0) return false; if (leaderboardData.length === 0) return true; if (leaderboardData.length < 10) return true; return currentScore > leaderboardData[leaderboardData.length - 1].score; }
+
+    // 初始化與啟動
+    initCharSelect(); 
     fetchLeaderboard();
     gameState = 'MENU';
-    initCharSelect(); 
     loop(); 
 
 </script>
