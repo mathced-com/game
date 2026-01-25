@@ -70,6 +70,21 @@
             border-bottom: 1px solid #1f2937; /* Blend with content */
             font-weight: bold;
         }
+
+        /* Platform Legend Styles */
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .legend-icon {
+            width: 24px;
+            height: 12px;
+            margin-right: 8px;
+            border-radius: 2px;
+            display: inline-block;
+            position: relative;
+        }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col items-center justify-center text-white relative">
@@ -86,27 +101,73 @@
 
         <!-- UI: Rules Modal -->
         <div id="rulesModal" class="hidden absolute inset-0 bg-black/95 z-40 flex flex-col items-center justify-center p-6 text-center rounded-lg overflow-y-auto">
-            <h2 class="text-2xl text-yellow-400 pixel-font mb-4">遊戲說明</h2>
+            <h2 class="text-xl text-yellow-400 pixel-font mb-4 mt-10 md:mt-0">遊戲說明</h2>
             
-            <div class="text-xs md:text-sm text-gray-300 mb-6 max-w-sm text-left mx-auto space-y-4">
+            <div class="text-xs text-gray-300 mb-6 max-w-sm text-left mx-auto space-y-4 w-full">
+                
+                <!-- Character Stats Table -->
                 <div class="bg-gray-800 p-3 rounded border border-gray-600">
-                    <h3 class="text-green-400 font-bold mb-2 border-b border-gray-600 pb-1">角色特性</h3>
-                    <ul class="space-y-2">
-                        <li class="flex items-start"><span class="text-green-500 font-bold mr-2">史萊姆:</span><span>平衡型，貼牆緩降。</span></li>
-                        <li class="flex items-start"><span class="text-gray-400 font-bold mr-2">石像鬼:</span><span>跳很高，無慣性(落地即停)。</span></li>
-                        <li class="flex items-start"><span class="text-blue-400 font-bold mr-2">忍者蛙:</span><span>速度快，可二段跳。</span></li>
-                        <li class="flex items-start"><span class="text-purple-400 font-bold mr-2">幽靈:</span><span>按住跳躍可緩降，跳躍高度強化。</span></li>
-                    </ul>
+                    <h3 class="text-green-400 font-bold mb-2 border-b border-gray-600 pb-1">角色詳細數值 (STATS)</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-green-400 font-bold">史萊姆 (Slime)</span>
+                            </div>
+                            <p class="text-gray-400 leading-tight">【平衡型】高度約 140px。貼牆時會有摩擦力導致<span class="text-green-200">緩慢滑落</span>(限連跳2次)。</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-gray-400 font-bold">石像鬼 (Gargoyle)</span>
+                            </div>
+                            <p class="text-gray-400 leading-tight">【重裝型】高度約 150px。<span class="text-gray-200">落地即停</span>，免疫<span class="text-red-400">尖刺</span>緩速，<span class="text-yellow-500">易碎地板</span>碎得快。</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-blue-400 font-bold">忍者蛙 (Ninja)</span>
+                            </div>
+                            <p class="text-gray-400 leading-tight">【速度型】一段約 120px。<span class="text-blue-200">二段跳</span>約 90px，可補足高度與距離。</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-purple-400 font-bold">幽靈 (Boo)</span>
+                            </div>
+                            <p class="text-gray-400 leading-tight">【飄浮型】高度約 157px。滑行遠，免疫<span class="text-red-400">尖刺</span>，<span class="text-yellow-500">易碎地板</span>撐得久。</p>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Platform Legend -->
                 <div class="bg-gray-800 p-3 rounded border border-gray-600">
-                    <h3 class="text-blue-400 font-bold mb-2 border-b border-gray-600 pb-1">操作</h3>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li>目標：向上跳，不要掉下去。</li>
-                        <li>觸控：左右滑動可直接切換方向。</li>
-                    </ul>
+                    <h3 class="text-blue-400 font-bold mb-2 border-b border-gray-600 pb-1">特殊樓板圖鑑</h3>
+                    <div class="space-y-2">
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background:#a5f3fc; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
+                            <span><strong class="text-cyan-300">冰板：</strong>非常滑。<br>石像鬼會滑一點點；幽靈會滑非常遠。</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background:#b45309; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
+                            <span><strong class="text-yellow-600">易碎：</strong>踩踏後變色，持續計時不暫停。<br>1秒閃爍，2秒碎裂消失。</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background:#ef4444; border-bottom: 2px solid #991b1b; display:flex; justify-content:center; align-items:end;"><div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:6px solid #7f1d1d;"></div></div>
+                            <span><strong class="text-red-400">尖刺：</strong>會受傷。<br>史萊姆/忍者蛙<span class="text-red-300">速度高度減半</span>。</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background:#6b7280; border-bottom: 2px solid rgba(0,0,0,0.2); text-align:center; line-height:12px; font-size:10px;">&gt;&gt;</div>
+                            <span><strong class="text-gray-400">輸送帶：</strong>強制將角色推向箭頭方向。</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background:#f472b6; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
+                            <span><strong class="text-pink-400">彈簧：</strong>踩上去會強制強力彈跳。</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background:#4ade80; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
+                            <span><strong class="text-green-400">移動：</strong>樓板會左右來回移動。</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <button onclick="toggleRules()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-blue-800">關閉</button>
+            <button onclick="toggleRules()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-blue-800 mb-6 md:mb-0">關閉 (CLOSE)</button>
         </div>
 
         <!-- UI: Countdown -->
@@ -221,32 +282,33 @@
     let gameState = 'MENU'; 
     let score = 0;
     let cameraY = 0;
-    let cameraSpeed = 0.5;
+    let cameraSpeed = 0.3; // Slower start speed
     let controlsLayout = 'standard';
-    let currentPlayerType = 'slime'; // Track current player type
-    let leaderboardsData = { all: [] }; // Store fetched data
+    let currentPlayerType = 'slime'; 
+    let leaderboardsData = { all: [] }; 
     let currentTab = 'all';
 
     const keys = { right: false, left: false, space: false, spaceHeld: false };
     let player;
     let platforms = [];
     
+    // UPDATED PHYSICS
     const CHARACTERS = {
-        slime: { name: "史萊姆", color: "#4ade80", w: 24, h: 24, speed: 5, jumpForce: 13, gravity: 0.6, friction: 0.85, type: "slime" },
-        gargoyle: { name: "石像鬼", color: "#9ca3af", w: 28, h: 28, speed: 3.5, jumpForce: 17, gravity: 0.9, friction: 0.5, type: "gargoyle" },
-        ninja: { name: "忍者蛙", color: "#3b82f6", w: 20, h: 20, speed: 7, jumpForce: 12, gravity: 0.7, friction: 0.85, type: "ninja" },
-        boo: { name: "幽靈", color: "#e9d5ff", w: 22, h: 22, speed: 4, 
-               jumpForce: 15, // UPDATED: Increased from 10 to 15
-               gravity: 0.35, friction: 0.92, type: "boo" }
+        slime: { name: "史萊姆", color: "#4ade80", w: 24, h: 24, speed: 6, jumpForce: 13.5, gravity: 0.6, friction: 0.85, type: "slime" },
+        gargoyle: { name: "石像鬼", color: "#9ca3af", w: 28, h: 28, speed: 6, jumpForce: 16.5, gravity: 0.9, friction: 0.85, type: "gargoyle" },
+        ninja: { name: "忍者蛙", color: "#3b82f6", w: 20, h: 20, speed: 6, jumpForce: 13, gravity: 0.7, friction: 0.85, type: "ninja" },
+        boo: { name: "幽靈", color: "#e9d5ff", w: 22, h: 22, speed: 6, 
+               jumpForce: 10.5, 
+               gravity: 0.35, friction: 0.95, type: "boo" } // Friction 0.95 for drift
     };
 
     class Player {
-        constructor(charType) {
+        constructor(charType, startY) {
             const stats = CHARACTERS[charType];
             this.stats = stats;
             this.type = charType;
             this.x = canvas.width / 2;
-            this.y = canvas.height - 100;
+            this.y = startY - stats.h; 
             this.vx = 0;
             this.vy = 0;
             this.w = stats.w;
@@ -254,16 +316,67 @@
             this.onGround = false;
             this.jumps = 0; 
             this.wallSliding = false;
+            this.wallJumpCount = 0; 
+            this.controlLock = 0; 
         }
 
         update() {
-            if (keys.right) this.vx += 0.8;
-            if (keys.left) this.vx -= 0.8;
-            this.vx *= this.stats.friction;
-            if (this.type === 'gargoyle' && !keys.right && !keys.left) this.vx *= 0.1; 
+            // Control Lock Logic
+            if (this.controlLock > 0) {
+                this.controlLock--;
+            } else {
+                if (keys.right) this.vx += 1.2;
+                if (keys.left) this.vx -= 1.2;
+            }
             
-            if (this.vx > this.stats.speed) this.vx = this.stats.speed;
-            if (this.vx < -this.stats.speed) this.vx = -this.stats.speed;
+            this.vx *= this.stats.friction;
+            
+            // Gargoyle Special: Immediate stop
+            if (this.type === 'gargoyle' && this.controlLock <= 0 && !keys.right && !keys.left) {
+                this.vx *= 0.1;
+            }
+            
+            // Max Speed Cap (Base speed)
+            let currentSpeedLimit = this.stats.speed;
+            
+            // Check for debuffs (Spike)
+            // We check collision again for debuff status or use state from collision loop
+            // For simplicity, we check proximity to spike platform
+            let onSpike = false;
+            let onIce = false;
+            platforms.forEach(p => {
+                if (this.y + this.h === p.y && this.x + this.w > p.x && this.x < p.x + p.w) {
+                    if (p.type === 'spike') onSpike = true;
+                    if (p.type === 'ice') onIce = true;
+                }
+            });
+
+            if (onSpike && this.type !== 'gargoyle' && this.type !== 'boo') {
+                currentSpeedLimit *= 0.5; // Half max speed on spike
+            }
+
+            if (this.vx > currentSpeedLimit) this.vx = currentSpeedLimit;
+            if (this.vx < -currentSpeedLimit) this.vx = -currentSpeedLimit;
+
+            // Ice Physics Adjustment
+            if (onIce) {
+                if (this.type === 'gargoyle') {
+                    // Gargoyle slides slightly instead of stopping instantly
+                    // We need to override the friction/stop logic slightly
+                    // But we already applied vx *= 0.1 above if released. 
+                    // To make it slide, we need to undo that or apply less harsh stop
+                    if (this.controlLock <= 0 && !keys.right && !keys.left) {
+                        // Undo the 0.1, apply softer friction
+                        this.vx /= 0.1; // Restore
+                        this.vx *= 0.8; // Slide a bit
+                    }
+                } else if (this.type === 'boo') {
+                    // Boo slides very far (Low friction)
+                    // Undo standard friction, apply very low friction
+                    this.vx /= this.stats.friction; 
+                    this.vx *= 0.99; 
+                }
+            }
 
             this.x += this.vx;
             if (this.x < 0) this.x = 0;
@@ -286,12 +399,34 @@
 
             this.onGround = false;
             platforms.forEach(p => {
+                // Breakable logic check: triggered and timer > 120 (broken) -> no collision
+                if (p.type === 'breakable' && p.broken) return;
+
                 if (this.vy >= 0 && this.y + this.h <= p.y + p.h + this.vy && this.y + this.h >= p.y && this.x + this.w > p.x && this.x < p.x + p.w) {
                     this.y = p.y - this.h;
                     this.vy = 0;
                     this.onGround = true;
                     this.jumps = 0; 
-                    if(p.type === 'ice') this.vx *= 1.05; 
+                    this.wallJumpCount = 0; 
+                    this.controlLock = 0; 
+                    
+                    // Platform Interactions
+                    if (p.type === 'ice') {
+                        // Logic handled in velocity update for smoothness
+                    } else if (p.type === 'conveyor_l') {
+                        this.x -= 2;
+                    } else if (p.type === 'conveyor_r') {
+                        this.x += 2;
+                    } else if (p.type === 'moving') {
+                        this.x += p.dx;
+                    } else if (p.type === 'spring') {
+                        // Spring Jump
+                        this.vy = (this.type === 'gargoyle') ? -15 : -22; 
+                        this.onGround = false; // Immediately airborne
+                    } else if (p.type === 'breakable') {
+                        // Trigger timer on first touch
+                        p.triggered = true;
+                    }
                 }
             });
 
@@ -300,13 +435,28 @@
 
         jump() {
             if (this.onGround) {
-                this.vy = -this.stats.jumpForce;
+                // Check if on spike and not immune
+                let onSpike = false;
+                platforms.forEach(p => {
+                     if (this.y + this.h === p.y && this.x + this.w > p.x && this.x < p.x + p.w && p.type === 'spike') onSpike = true;
+                });
+                
+                let force = this.stats.jumpForce;
+                if (onSpike && this.type !== 'gargoyle' && this.type !== 'boo') {
+                    force *= 0.5; // Half jump height
+                }
+                
+                this.vy = -force;
                 this.jumps = 1;
-            } else if (this.type === 'slime' && this.wallSliding) {
+            } 
+            else if (this.type === 'slime' && this.wallSliding && this.wallJumpCount < 2) {
                 this.vy = -this.stats.jumpForce;
                 this.vx = (this.x <= 0) ? 8 : -8; 
-            } else if (this.type === 'ninja' && this.jumps < 2) {
-                this.vy = -(this.stats.jumpForce * 0.6); 
+                this.wallJumpCount++;
+                this.controlLock = 15; 
+            } 
+            else if (this.type === 'ninja' && this.jumps < 2) {
+                this.vy = -(this.stats.jumpForce * 0.86); 
                 this.jumps++;
             }
         }
@@ -332,26 +482,173 @@
             this.w = w;
             this.h = 16;
             this.type = type;
+            this.broken = false;
+            this.triggered = false; // New: triggered state
+            this.breakTimer = 0;
+            this.dx = 2; // for moving platform
+            this.moveRange = 100;
+            this.startX = x;
         }
+        
+        update() {
+            if (this.type === 'moving') {
+                this.x += this.dx;
+                // Bounce logic
+                if (this.x > this.startX + this.moveRange || this.x < this.startX - this.moveRange || this.x + this.w > canvas.width || this.x < 0) {
+                    this.dx *= -1;
+                }
+            }
+            
+            if (this.type === 'breakable' && this.triggered) {
+                // Timer runs continuously if triggered
+                // 120 frames = 2 seconds
+                let limit = 120; 
+                // We access currentPlayerType from global scope or pass it in. Global is easiest here.
+                if (currentPlayerType === 'gargoyle') limit = 84; 
+                if (currentPlayerType === 'boo') limit = 180; 
+                
+                this.breakTimer++;
+                if (this.breakTimer > limit) {
+                    this.broken = true;
+                }
+            }
+        }
+
         draw() {
-            if (this.type === 'ice') ctx.fillStyle = '#a5f3fc';
-            else if (this.type === 'breakable') ctx.fillStyle = '#b45309';
-            else ctx.fillStyle = '#65a30d'; 
-            ctx.fillRect(this.x, this.y, this.w, this.h);
+            if (this.broken) return; // Don't draw if broken
+
+            ctx.save();
+            ctx.translate(this.x, this.y);
+
+            // Base Background
+            if (this.type === 'ice') {
+                // Ice: Cyan with gloss
+                ctx.fillStyle = '#a5f3fc';
+                ctx.fillRect(0, 0, this.w, this.h);
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath();
+                ctx.moveTo(5, 0); ctx.lineTo(15, 0); ctx.lineTo(10, this.h); ctx.lineTo(0, this.h);
+                ctx.fill();
+                ctx.moveTo(20, 0); ctx.lineTo(25, 0); ctx.lineTo(20, this.h); ctx.lineTo(15, this.h);
+                ctx.fill();
+            }
+            else if (this.type === 'breakable') {
+                // Breakable: Brown, cracks if triggered
+                // Flash red if > 1s (60 frames)
+                if (this.breakTimer > 60 && Math.floor(Date.now()/100)%2===0) {
+                    ctx.fillStyle = '#fca5a5'; // Light red flash
+                } else {
+                    ctx.fillStyle = '#b45309'; // Brown
+                }
+                ctx.fillRect(0, 0, this.w, this.h);
+                
+                // Draw Cracks
+                if (this.triggered) {
+                    ctx.strokeStyle = '#451a03';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.w/2, 0); ctx.lineTo(this.w/2 - 5, 8); ctx.lineTo(this.w/2 + 5, 12);
+                    if (this.breakTimer > 60) {
+                        ctx.moveTo(10, 0); ctx.lineTo(20, 10);
+                        ctx.moveTo(this.w-10, 0); ctx.lineTo(this.w-20, 10);
+                    }
+                    ctx.stroke();
+                }
+            }
+            else if (this.type === 'spike') {
+                // Spike: Gray base, Red Spikes
+                ctx.fillStyle = '#9ca3af'; // Gray base
+                ctx.fillRect(0, 0, this.w, this.h);
+                
+                ctx.fillStyle = '#ef4444'; // Red spikes
+                ctx.beginPath();
+                for(let i=0; i<this.w; i+=10) {
+                    // Triangle spikes
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i + 5, -6);
+                    ctx.lineTo(i + 10, 0);
+                }
+                ctx.fill();
+            }
+            else if (this.type === 'conveyor_l' || this.type === 'conveyor_r') {
+                // Conveyor: Dark gray with arrows
+                ctx.fillStyle = '#4b5563'; 
+                ctx.fillRect(0, 0, this.w, this.h);
+                
+                ctx.fillStyle = '#9ca3af'; // Light gray arrows
+                let offset = (Math.floor(Date.now()/20) % 20); // Animation
+                if (this.type === 'conveyor_r') {
+                    for(let i=-20; i<this.w; i+=20) {
+                        let drawX = i + offset;
+                        if(drawX > 0 && drawX < this.w) ctx.fillText(">", drawX, 11);
+                    }
+                } else {
+                    for(let i=0; i<this.w + 20; i+=20) {
+                        let drawX = i - offset;
+                        if(drawX > 0 && drawX < this.w) ctx.fillText("<", drawX, 11);
+                    }
+                }
+            }
+            else if (this.type === 'spring') {
+                // Spring: Pink block with coil
+                ctx.fillStyle = '#f472b6';
+                ctx.fillRect(0, 0, this.w, this.h);
+                
+                ctx.strokeStyle = '#831843';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                // Draw simple zigzag coil on top
+                ctx.moveTo(this.w/2 - 10, 0);
+                ctx.lineTo(this.w/2 - 5, -5);
+                ctx.lineTo(this.w/2 + 5, 0);
+                ctx.lineTo(this.w/2 + 10, -5);
+                ctx.stroke();
+            }
+            else if (this.type === 'moving') {
+                // Moving: Green with engine details
+                ctx.fillStyle = '#4ade80';
+                ctx.fillRect(0, 0, this.w, this.h);
+                
+                ctx.fillStyle = '#166534'; // Dark green details
+                ctx.fillRect(2, 4, this.w-4, 2);
+                ctx.fillRect(5, 10, 4, 4); // "Wheels"
+                ctx.fillRect(this.w-9, 10, 4, 4);
+            }
+            else {
+                // Normal: Mossy Stone
+                ctx.fillStyle = '#65a30d'; 
+                ctx.fillRect(0, 0, this.w, this.h);
+                // Moss dots
+                ctx.fillStyle = '#365314';
+                ctx.fillRect(5, 5, 2, 2);
+                ctx.fillRect(this.w-10, 8, 2, 2);
+                ctx.fillRect(this.w/2, 4, 2, 2);
+            }
+
+            // Shadow for all (bottom edge)
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.fillRect(this.x, this.y + this.h - 4, this.w, 4);
+            ctx.fillRect(0, this.h - 4, this.w, 4);
+
+            ctx.restore();
         }
     }
 
     function initGame(charType) {
         currentPlayerType = charType;
-        player = new Player(charType);
         platforms = [];
         score = 0;
         cameraY = 0;
-        cameraSpeed = 0.5;
-        platforms.push(new Platform(0, canvas.height - 20, canvas.width));
-        for(let i=1; i<6; i++) { generatePlatform(canvas.height - 100 * i); }
+        cameraSpeed = 0.3; // Starts slower
+        
+        const startGroundY = canvas.height - 250;
+        platforms.push(new Platform(0, startGroundY, canvas.width));
+        
+        player = new Player(charType, startGroundY);
+        
+        for(let i=1; i<6; i++) { 
+            generatePlatform(startGroundY - 100 * i); 
+        }
+        
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
         document.getElementById('touchControls').classList.remove('pointer-events-none');
@@ -382,25 +679,80 @@
     }
 
     function generatePlatform(yPos) {
-        const w = 80 + Math.random() * 60;
-        const x = Math.random() * (canvas.width - w);
-        let type = 'normal';
-        if (score > 500 && Math.random() > 0.8) type = 'ice';
-        platforms.push(new Platform(x, yPos, w, type));
+        // Decide if we spawn 1 or 2 platforms
+        const spawnCount = (score > 200 && Math.random() < 0.3) ? 2 : 1;
+        
+        // Helper to spawn one
+        const spawnOne = (minX, maxX) => {
+            const w = 80 + Math.random() * 60;
+            // Ensure bounds
+            if (maxX < minX + w) maxX = minX + w;
+            if (maxX > canvas.width) maxX = canvas.width;
+            
+            const x = Math.min(canvas.width - w, Math.max(0, minX + Math.random() * (maxX - minX - w)));
+            
+            // Type Selection
+            let type = 'normal';
+            const r = Math.random();
+            if (score > 300) {
+                if (r > 0.95) type = 'spring';
+                else if (r > 0.90) type = 'spike';
+                else if (r > 0.85) type = 'breakable';
+                else if (r > 0.80) type = 'conveyor_l';
+                else if (r > 0.75) type = 'conveyor_r';
+                else if (r > 0.70) type = 'ice';
+                else if (r > 0.65) type = 'moving';
+            }
+            
+            platforms.push(new Platform(x, yPos, w, type));
+            return {x, w};
+        };
+
+        if (spawnCount === 1) {
+            // Logic to keep it reachable (same as before)
+            const w = 80 + Math.random() * 60;
+            let minX = 0;
+            let maxX = canvas.width - w;
+            
+            if (platforms.length > 0) {
+                const prev = platforms[platforms.length - 1];
+                const reach = 240; 
+                const validMin = Math.max(0, prev.x - reach);
+                const validMax = Math.min(canvas.width - w, prev.x + prev.w + reach - w);
+                if (validMin < validMax) { minX = validMin; maxX = validMax; }
+            }
+            
+            // Custom simplified spawn logic for single to allow type selection
+            // We reuse the type logic logic by calling spawnOne roughly in range
+            spawnOne(minX, maxX + w); 
+        } else {
+            // Spawn two platforms (Split screen roughly)
+            spawnOne(0, canvas.width / 2);
+            spawnOne(canvas.width / 2, canvas.width);
+        }
     }
 
     function update() {
         if (gameState !== 'PLAYING') return;
-        cameraSpeed = 0.5 + (score / 5000); 
+        
+        // Scroll Speed: Start 0.3, gradually increase but capped
+        cameraSpeed = 0.3 + Math.min(1.5, score / 8000); 
+        
         if (player.y < cameraY + 200) cameraY = player.y - 200;
         else cameraY -= cameraSpeed;
 
-        let currentHeight = Math.floor(-player.y + (canvas.height - 100));
+        let currentHeight = Math.floor(-player.y + (canvas.height - 100)); 
+        if(currentHeight < 0) currentHeight = 0; 
         if (currentHeight > score) score = currentHeight;
         document.getElementById('scoreDisplay').innerText = score;
 
         const highestPlatform = platforms[platforms.length - 1];
         if (highestPlatform.y > cameraY - 50) generatePlatform(highestPlatform.y - (80 + Math.random() * 40));
+        
+        // Update platforms (for moving ones)
+        platforms.forEach(p => p.update());
+        
+        // Filter out old platforms
         platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50);
 
         player.update();
@@ -432,7 +784,6 @@
         document.getElementById('gameOverScreen').classList.remove('hidden');
         document.getElementById('finalScore').innerText = score;
         
-        // Reset submit form
         document.getElementById('submitForm').classList.remove('hidden');
         document.getElementById('submitSuccessMsg').classList.add('hidden');
         document.getElementById('submitBtn').disabled = false;
@@ -449,10 +800,8 @@
 
     function selectChar(type) { initGame(type); }
 
-    // --- Tab System ---
     function switchTab(tab) {
         currentTab = tab;
-        // Update visual tabs
         ['all', 'slime', 'gargoyle', 'ninja', 'boo'].forEach(t => {
             const el = document.getElementById('tab-' + t);
             if (t === tab) el.classList.add('active-tab');
@@ -473,7 +822,6 @@
         let html = '';
         data.forEach((item, index) => {
             let color = index === 0 ? 'text-yellow-400' : (index === 1 ? 'text-gray-300' : (index === 2 ? 'text-orange-400' : 'text-gray-400'));
-            // Icon based on character
             let charIcon = '';
             if (item.character === 'slime') charIcon = '<span class="text-green-400">●</span>';
             else if (item.character === 'gargoyle') charIcon = '<span class="text-gray-400">■</span>';
@@ -527,16 +875,13 @@
             return;
         }
 
-        // Prevent Duplicate: Disable immediately
         btn.disabled = true;
         btn.innerText = "上傳中...";
 
         try {
-            // Updated: Send 'character' parameter
             const targetUrl = `${API_URL}?action=add&name=${encodeURIComponent(name)}&score=${score}&character=${currentPlayerType}`;
             await fetch(targetUrl);
             
-            // Prevent Duplicate: Switch to Success View
             document.getElementById('submitForm').classList.add('hidden');
             document.getElementById('submitSuccessMsg').classList.remove('hidden');
 
@@ -548,7 +893,6 @@
         }
     }
 
-    // --- Inputs Handlers ---
     window.addEventListener('keydown', e => {
         if (e.code === 'ArrowRight') { keys.right = true; setButtonState('btnRight', true); }
         if (e.code === 'ArrowLeft') { keys.left = true; setButtonState('btnLeft', true); }
