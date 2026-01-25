@@ -15,6 +15,9 @@
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
+            /* Fix for mobile browser address bar */
+            height: 100vh;
+            height: 100dvh; 
         }
         canvas {
             image-rendering: pixelated;
@@ -33,6 +36,7 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+        /* Button Styles */
         .touch-btn {
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid rgba(255, 255, 255, 0.4);
@@ -57,35 +61,39 @@
         /* Joystick Styles */
         .joystick-base {
             position: absolute;
-            width: 100px;
+            width: 100px; 
             height: 100px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            pointer-events: none; /* Let touches pass through to document/zone handlers */
-            display: none; /* Hidden by default */
+            pointer-events: none; /* Let touches pass through */
+            display: none; 
             z-index: 45;
+            backdrop-filter: blur(2px);
         }
         .joystick-knob {
             position: absolute;
             width: 50px;
             height: 50px;
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.8);
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
-        .joystick-zone {
-            position: fixed;
-            top: 0;
-            left: 0;
+        
+        /* Touch Zones for Joystick Mode */
+        .touch-zone {
+            position: absolute;
+            bottom: 0;
+            top: 20%; /* Leave space for top UI */
             width: 50%;
-            height: 100%;
-            z-index: 40;
-            touch-action: none;
+            z-index: 40; 
+            /* border: 1px solid rgba(255,0,0,0.2); Debugging */ 
         }
+        #zone-left { left: 0; }
+        #zone-right { right: 0; }
 
         .tab-btn {
             padding: 4px 8px;
@@ -99,8 +107,8 @@
         }
         .tab-btn.active-tab {
             background: #1f2937;
-            color: #fbbf24; /* yellow-400 */
-            border-bottom: 1px solid #1f2937; /* Blend with content */
+            color: #fbbf24; 
+            border-bottom: 1px solid #1f2937; 
             font-weight: bold;
         }
 
@@ -128,7 +136,7 @@
         }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col items-center justify-center text-white relative">
+<body class="flex flex-col items-center justify-center text-white relative">
 
     <div class="relative w-full h-full max-w-[480px] max-h-[640px] flex items-center justify-center z-10">
         <canvas id="gameCanvas" width="480" height="640" class="bg-gray-800 rounded-lg border-4 border-gray-600 w-full h-full object-contain"></canvas>
@@ -230,10 +238,9 @@
                 </button>
             </div>
             
-            <div class="flex items-center justify-center space-x-2 mt-2 bg-gray-800/50 p-2 rounded border border-gray-700">
-                <span class="text-xs text-gray-400 font-bold mr-1">操作方式：</span>
-                <button id="layoutToggleBtn" onclick="toggleControlLayout()" class="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600 border border-gray-500 text-white min-w-[80px]">
-                    標準 (左移/右跳)
+            <div class="flex items-center justify-center space-x-2 mt-2 bg-gray-800/50 p-2 rounded border border-gray-700 w-full max-w-xs">
+                <button id="layoutToggleBtn" onclick="toggleControlLayout()" class="text-xs px-2 py-2 bg-gray-700 rounded hover:bg-gray-600 border border-gray-500 text-white w-full">
+                    按鍵：標準 (左移/右跳)
                 </button>
             </div>
         </div>
@@ -287,26 +294,29 @@
         <div class="joystick-knob"></div>
     </div>
 
-    <!-- Touch Controls -->
-    <!-- Added #joystick-zone for catching touches on the left side -->
-    <div id="joystick-zone" class="joystick-zone hidden"></div>
+    <!-- Joystick Active Zones (Hidden by default, shown based on mode) -->
+    <div id="zone-left" class="touch-zone hidden"></div>
+    <div id="zone-right" class="touch-zone hidden"></div>
 
+    <!-- Touch Controls Container -->
     <div id="touchControls" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-6 pb-2 flex justify-between items-end z-50 pointer-events-none select-none lg:max-w-none lg:left-0 lg:translate-x-0 lg:bottom-10 lg:px-20 lg:pb-4">
         
-        <!-- Standard D-Pad -->
+        <!-- Standard D-Pad (Button Mode) -->
+        <!-- Resized to w-20 h-20 (80px) for better visibility -->
         <div id="dpadContainer" class="flex gap-4 pointer-events-auto">
-            <div id="btnLeft" class="touch-btn w-24 h-24 active:bg-white/30" data-key="left">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            <div id="btnLeft" class="touch-btn w-20 h-20 active:bg-white/30" data-key="left">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </div>
-            <div id="btnRight" class="touch-btn w-24 h-24 active:bg-white/30" data-key="right">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <div id="btnRight" class="touch-btn w-20 h-20 active:bg-white/30" data-key="right">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </div>
         </div>
 
         <!-- Action Button (Jump) -->
+        <!-- Resized to w-24 h-24 (96px) -->
         <div id="actionContainer" class="pointer-events-auto">
-            <div id="btnJump" class="touch-btn w-28 h-28 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
-                <span class="text-base">JUMP</span>
+            <div id="btnJump" class="touch-btn w-24 h-24 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
+                <span class="text-sm">JUMP</span>
             </div>
         </div>
     </div>
@@ -325,10 +335,18 @@
     let score = 0;
     let cameraY = 0;
     let cameraSpeed = 0.3; 
-    let controlsLayout = 'standard'; // 'standard', 'flipped', 'joystick'
     let currentPlayerType = 'slime'; 
     let leaderboardsData = { all: [] }; 
     let currentTab = 'all';
+
+    // 0: Btn-Std, 1: Btn-Flip, 2: Joy-Std, 3: Joy-Flip
+    let controlMode = 0; 
+    const controlModes = [
+        { name: "按鍵：標準 (左移/右跳)", type: 'btn', layout: 'std' },
+        { name: "按鍵：反轉 (右移/左跳)", type: 'btn', layout: 'flip' },
+        { name: "搖桿：標準 (左移/右跳)", type: 'joy', layout: 'std' },
+        { name: "搖桿：反轉 (右移/左跳)", type: 'joy', layout: 'flip' }
+    ];
 
     const keys = { right: false, left: false, space: false, spaceHeld: false };
     let player;
@@ -342,7 +360,7 @@
         baseY: 0,
         knobX: 0,
         knobY: 0,
-        maxRadius: 40 // Visual limit for knob
+        maxRadius: 40 
     };
 
     // PHYSICS
@@ -673,7 +691,7 @@
         document.getElementById('touchControls').classList.remove('pointer-events-none');
         document.getElementById('btn-leaderboard').classList.add('hidden'); 
         
-        // Show/Hide Controls based on Layout
+        // Ensure UI matches current mode
         updateControlsUI();
         
         startCountdown();
@@ -937,35 +955,37 @@
     }
     
     // Joystick Logic
-    const joystickZone = document.getElementById('joystick-zone');
+    const zones = document.querySelectorAll('.touch-zone');
     const joystickVisual = document.getElementById('joystick-visual');
     const joystickKnob = joystickVisual.querySelector('.joystick-knob');
 
-    joystickZone.addEventListener('touchstart', (e) => {
-        e.preventDefault();
+    function handleJoystickStart(e) {
+        // Prevent default touch actions (scrolling)
+        if(e.cancelable) e.preventDefault();
+        
         const touch = e.changedTouches[0];
+        if(joystickData.active) return; // Only one joystick at a time
+
         joystickData.active = true;
         joystickData.id = touch.identifier;
         joystickData.baseX = touch.clientX;
         joystickData.baseY = touch.clientY;
-        joystickData.knobX = touch.clientX;
-        joystickData.knobY = touch.clientY;
-
-        // Show Visuals
+        
+        // Show visuals at touch point
         joystickVisual.style.display = 'block';
-        joystickVisual.style.left = (joystickData.baseX - 50) + 'px'; // Center base (100px wide)
-        joystickVisual.style.top = (joystickData.baseY - 50) + 'px';
+        joystickVisual.style.left = (touch.clientX - 50) + 'px'; // Center base (100px wide / 2 = 50)
+        joystickVisual.style.top = (touch.clientY - 50) + 'px';
         joystickKnob.style.transform = `translate(-50%, -50%)`;
-    }, {passive: false});
+    }
 
-    joystickZone.addEventListener('touchmove', (e) => {
+    function handleJoystickMove(e) {
         if(!joystickData.active) return;
-        e.preventDefault();
+        if(e.cancelable) e.preventDefault();
         
         let touch = null;
-        for(let i=0; i<e.touches.length; i++) {
-            if(e.touches[i].identifier === joystickData.id) {
-                touch = e.touches[i];
+        for(let i=0; i<e.changedTouches.length; i++) {
+            if(e.changedTouches[i].identifier === joystickData.id) {
+                touch = e.changedTouches[i];
                 break;
             }
         }
@@ -988,12 +1008,10 @@
         if (dx < -threshold) { keys.left = true; keys.right = false; }
         else if (dx > threshold) { keys.right = true; keys.left = false; }
         else { keys.left = false; keys.right = false; }
+    }
 
-    }, {passive: false});
-
-    const endJoystick = (e) => {
+    function handleJoystickEnd(e) {
         if(!joystickData.active) return;
-        // Check if our touch ended
         let myTouchEnded = false;
         for(let i=0; i<e.changedTouches.length; i++) {
             if(e.changedTouches[i].identifier === joystickData.id) {
@@ -1007,14 +1025,18 @@
             keys.left = false;
             keys.right = false;
         }
-    };
-    joystickZone.addEventListener('touchend', endJoystick);
-    joystickZone.addEventListener('touchcancel', endJoystick);
+    }
+
+    zones.forEach(zone => {
+        zone.addEventListener('touchstart', handleJoystickStart, {passive: false});
+        zone.addEventListener('touchmove', handleJoystickMove, {passive: false});
+        zone.addEventListener('touchend', handleJoystickEnd);
+        zone.addEventListener('touchcancel', handleJoystickEnd);
+    });
 
 
     const handleDpadTouch = (e) => {
-        if (!e.cancelable) return;
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         let tL = false, tR = false;
         for (let i = 0; i < e.touches.length; i++) {
             const el = document.elementFromPoint(e.touches[i].clientX, e.touches[i].clientY);
@@ -1028,8 +1050,7 @@
         if (keys.right !== tR) { keys.right = tR; setButtonState('btnRight', tR); }
     };
     const handleActionTouch = (e) => {
-        if (!e.cancelable) return;
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         let tJump = false;
         for (let i = 0; i < e.touches.length; i++) {
             const el = document.elementFromPoint(e.touches[i].clientX, e.touches[i].clientY);
@@ -1042,6 +1063,7 @@
             keys.space = false; keys.spaceHeld = false; setButtonState('btnJump', false);
         }
     };
+    
     dpadContainer.addEventListener('touchstart', handleDpadTouch, {passive:false});
     dpadContainer.addEventListener('touchmove', handleDpadTouch, {passive:false});
     dpadContainer.addEventListener('touchend', handleDpadTouch, {passive:false});
@@ -1076,36 +1098,39 @@
     }
 
     function toggleControlLayout() {
+        controlMode = (controlMode + 1) % 4;
+        const mode = controlModes[controlMode];
         const btn = document.getElementById('layoutToggleBtn');
-        
-        if (controlsLayout === 'standard') {
-            controlsLayout = 'flipped';
-            btn.innerText = "按鍵：反轉 (右移/左跳)";
-        } else if (controlsLayout === 'flipped') {
-            controlsLayout = 'joystick';
-            btn.innerText = "模式：搖桿 (類似傳說)";
-        } else {
-            controlsLayout = 'standard';
-            btn.innerText = "按鍵：標準 (左移/右跳)";
-        }
+        btn.innerText = mode.name;
         updateControlsUI();
     }
 
     function updateControlsUI() {
+        const mode = controlModes[controlMode];
         const touchContainer = document.getElementById('touchControls');
         const dpad = document.getElementById('dpadContainer');
-        const joyZone = document.getElementById('joystick-zone');
+        const leftZone = document.getElementById('zone-left');
+        const rightZone = document.getElementById('zone-right');
 
-        // Reset
-        touchContainer.style.flexDirection = 'row';
+        // Reset visibility
         dpad.classList.remove('hidden');
-        joyZone.classList.add('hidden');
-
-        if (controlsLayout === 'flipped') {
+        leftZone.classList.add('hidden');
+        rightZone.classList.add('hidden');
+        
+        // Reset Flex
+        if(mode.layout === 'std') {
+            touchContainer.style.flexDirection = 'row';
+        } else {
             touchContainer.style.flexDirection = 'row-reverse';
-        } else if (controlsLayout === 'joystick') {
+        }
+
+        if(mode.type === 'joy') {
             dpad.classList.add('hidden');
-            joyZone.classList.remove('hidden');
+            if(mode.layout === 'std') {
+                leftZone.classList.remove('hidden'); // Joystick left
+            } else {
+                rightZone.classList.remove('hidden'); // Joystick right
+            }
         }
     }
 
