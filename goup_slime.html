@@ -58,42 +58,29 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
         }
         
-        /* Joystick Styles */
-        .joystick-base {
-            position: absolute;
-            width: 100px; 
+        /* Joystick Fixed Styles */
+        .joystick-container {
+            width: 100px; /* Reduced slightly for better fit */
             height: 100px;
-            background: rgba(255, 255, 255, 0.15);
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            pointer-events: none; /* Let touches pass through */
-            display: none; 
-            z-index: 45;
+            touch-action: none;
             backdrop-filter: blur(2px);
         }
         .joystick-knob {
-            position: absolute;
             width: 50px;
             height: 50px;
+            position: absolute;
             background: rgba(255, 255, 255, 0.8);
             border-radius: 50%;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%); /* Default centered */
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            pointer-events: none; /* Events captured by container */
         }
-        
-        /* Touch Zones for Joystick Mode */
-        .touch-zone {
-            position: absolute;
-            bottom: 0;
-            top: 20%; /* Leave space for top UI */
-            width: 50%;
-            z-index: 40; 
-            /* border: 1px solid rgba(255,0,0,0.2); Debugging */ 
-        }
-        #zone-left { left: 0; }
-        #zone-right { right: 0; }
 
         .tab-btn {
             padding: 4px 8px;
@@ -289,33 +276,28 @@
         </div>
     </div>
 
-    <!-- Joystick Visuals -->
-    <div id="joystick-visual" class="joystick-base">
-        <div class="joystick-knob"></div>
-    </div>
-
-    <!-- Joystick Active Zones (Hidden by default, shown based on mode) -->
-    <div id="zone-left" class="touch-zone hidden"></div>
-    <div id="zone-right" class="touch-zone hidden"></div>
-
     <!-- Touch Controls Container -->
+    <!-- Fixed at bottom with z-50 -->
     <div id="touchControls" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-6 pb-2 flex justify-between items-end z-50 pointer-events-none select-none lg:max-w-none lg:left-0 lg:translate-x-0 lg:bottom-10 lg:px-20 lg:pb-4">
         
-        <!-- Standard D-Pad (Button Mode) -->
-        <!-- Resized to w-20 h-20 (80px) for better visibility -->
+        <!-- Element 1: D-Pad Container (Hidden when Joystick mode) -->
         <div id="dpadContainer" class="flex gap-4 pointer-events-auto">
-            <div id="btnLeft" class="touch-btn w-20 h-20 active:bg-white/30" data-key="left">
+            <div id="btnLeft" class="touch-btn w-16 h-16 active:bg-white/30" data-key="left">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </div>
-            <div id="btnRight" class="touch-btn w-20 h-20 active:bg-white/30" data-key="right">
+            <div id="btnRight" class="touch-btn w-16 h-16 active:bg-white/30" data-key="right">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </div>
         </div>
 
-        <!-- Action Button (Jump) -->
-        <!-- Resized to w-24 h-24 (96px) -->
+        <!-- Element 2: Joystick Container (Fixed position in layout, Hidden when Button mode) -->
+        <div id="joystick-base" class="joystick-container hidden pointer-events-auto">
+            <div class="joystick-knob"></div>
+        </div>
+
+        <!-- Element 3: Action/Jump Button (Always visible) -->
         <div id="actionContainer" class="pointer-events-auto">
-            <div id="btnJump" class="touch-btn w-24 h-24 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
+            <div id="btnJump" class="touch-btn w-20 h-20 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
                 <span class="text-sm">JUMP</span>
             </div>
         </div>
@@ -339,7 +321,11 @@
     let leaderboardsData = { all: [] }; 
     let currentTab = 'all';
 
-    // 0: Btn-Std, 1: Btn-Flip, 2: Joy-Std, 3: Joy-Flip
+    // Control Modes
+    // 0: Btn-Std (Left Dpad, Right Jump)
+    // 1: Btn-Flip (Left Jump, Right Dpad)
+    // 2: Joy-Std (Left Joy, Right Jump)
+    // 3: Joy-Flip (Left Jump, Right Joy)
     let controlMode = 0; 
     const controlModes = [
         { name: "按鍵：標準 (左移/右跳)", type: 'btn', layout: 'std' },
@@ -358,8 +344,6 @@
         id: null,
         baseX: 0,
         baseY: 0,
-        knobX: 0,
-        knobY: 0,
         maxRadius: 40 
     };
 
@@ -955,26 +939,25 @@
     }
     
     // Joystick Logic
-    const zones = document.querySelectorAll('.touch-zone');
-    const joystickVisual = document.getElementById('joystick-visual');
-    const joystickKnob = joystickVisual.querySelector('.joystick-knob');
+    const joystickBase = document.getElementById('joystick-base');
+    const joystickKnob = joystickBase.querySelector('.joystick-knob');
 
     function handleJoystickStart(e) {
         // Prevent default touch actions (scrolling)
         if(e.cancelable) e.preventDefault();
         
-        const touch = e.changedTouches[0];
         if(joystickData.active) return; // Only one joystick at a time
 
+        const touch = e.changedTouches[0];
         joystickData.active = true;
         joystickData.id = touch.identifier;
-        joystickData.baseX = touch.clientX;
-        joystickData.baseY = touch.clientY;
         
-        // Show visuals at touch point
-        joystickVisual.style.display = 'block';
-        joystickVisual.style.left = (touch.clientX - 50) + 'px'; // Center base (100px wide / 2 = 50)
-        joystickVisual.style.top = (touch.clientY - 50) + 'px';
+        // Calculate center based on actual DOM position
+        const rect = joystickBase.getBoundingClientRect();
+        joystickData.baseX = rect.left + rect.width / 2;
+        joystickData.baseY = rect.top + rect.height / 2;
+        
+        // Reset knob
         joystickKnob.style.transform = `translate(-50%, -50%)`;
     }
 
@@ -1021,18 +1004,17 @@
         }
         if(myTouchEnded) {
             joystickData.active = false;
-            joystickVisual.style.display = 'none';
+            joystickKnob.style.transform = `translate(-50%, -50%)`;
             keys.left = false;
             keys.right = false;
         }
     }
 
-    zones.forEach(zone => {
-        zone.addEventListener('touchstart', handleJoystickStart, {passive: false});
-        zone.addEventListener('touchmove', handleJoystickMove, {passive: false});
-        zone.addEventListener('touchend', handleJoystickEnd);
-        zone.addEventListener('touchcancel', handleJoystickEnd);
-    });
+    // Attach listeners to the joystick container
+    joystickBase.addEventListener('touchstart', handleJoystickStart, {passive: false});
+    joystickBase.addEventListener('touchmove', handleJoystickMove, {passive: false});
+    joystickBase.addEventListener('touchend', handleJoystickEnd);
+    joystickBase.addEventListener('touchcancel', handleJoystickEnd);
 
 
     const handleDpadTouch = (e) => {
@@ -1109,15 +1091,13 @@
         const mode = controlModes[controlMode];
         const touchContainer = document.getElementById('touchControls');
         const dpad = document.getElementById('dpadContainer');
-        const leftZone = document.getElementById('zone-left');
-        const rightZone = document.getElementById('zone-right');
+        const joy = document.getElementById('joystick-base');
 
         // Reset visibility
         dpad.classList.remove('hidden');
-        leftZone.classList.add('hidden');
-        rightZone.classList.add('hidden');
+        joy.classList.add('hidden');
         
-        // Reset Flex
+        // Flex Direction controls left/right swap
         if(mode.layout === 'std') {
             touchContainer.style.flexDirection = 'row';
         } else {
@@ -1126,11 +1106,7 @@
 
         if(mode.type === 'joy') {
             dpad.classList.add('hidden');
-            if(mode.layout === 'std') {
-                leftZone.classList.remove('hidden'); // Joystick left
-            } else {
-                rightZone.classList.remove('hidden'); // Joystick right
-            }
+            joy.classList.remove('hidden');
         }
     }
 
