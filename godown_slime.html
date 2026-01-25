@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - V5.0 旗艦版</title>
+    <title>史萊姆下樓梯 - V5.1 搖桿修復版</title>
     <style>
         body { 
             margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
@@ -11,7 +11,7 @@
         }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
         
-        /* UI 層 */
+        /* UI 層 (z-index: 20) */
         #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; z-index: 20; }
         .hud-top { 
             display: flex; justify-content: space-between; align-items: center; 
@@ -29,7 +29,7 @@
         .icon-btn:hover { background: rgba(255, 255, 255, 0.4); }
         .icon-btn.muted { opacity: 0.6; text-decoration: line-through; color: #aaa; border-color: #aaa; }
 
-        /* --- 1. 固定按鍵層 --- */
+        /* --- 1. 固定按鍵層 (z-index: 30) --- */
         #controls-layer {
             position: absolute; pointer-events: auto; display: none; 
             align-items: center; z-index: 30; box-sizing: border-box; user-select: none;
@@ -53,11 +53,17 @@
             #controls-layer.mode-btn-right { right: 40px; justify-content: flex-end; }
         }
 
-        /* --- 2. 動態搖桿層 (修正層級問題) --- */
+        /* --- 2. 動態搖桿層 (z-index: 25) --- */
         #joystick-touch-zone {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 25; /* 比 UI 高，但比 Start Screen 低 */
+            z-index: 25; 
             pointer-events: auto; display: none; 
+        }
+        /* 搖桿提示文字 */
+        #joystick-hint {
+            position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
+            color: rgba(255,255,255,0.5); font-size: 14px; pointer-events: none;
+            text-shadow: 1px 1px 2px black; display: none; z-index: 26;
         }
         #joystick-visual {
             position: absolute; display: none; pointer-events: none; z-index: 999;
@@ -74,22 +80,21 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.5); border: 2px solid white;
         }
 
-        /* Start Screen (確保 Z-index 最高，不被搖桿層遮擋) */
+        /* Start Screen (z-index: 9999 - 最高，確保絕對能點擊) */
         #start-screen { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
             padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; 
             cursor: pointer; pointer-events: auto; 
-            z-index: 100; /* 最高層級 */
+            z-index: 9999; 
             width: 85%; max-width: 380px; max-height: 95vh; 
             display: flex; flex-direction: column; align-items: center; overflow-y: auto;
         }
         #start-title { margin: 10px 0; font-size: 28px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.5); }
-        #start-desc { margin: 10px 0; font-size: 18px; line-height: 1.5; }
+        #start-desc { margin: 10px 0; font-size: 18px; line-height: 1.5; pointer-events: none; } /* 文字不擋點擊 */
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
         
-        /* 角色與設定 */
         #char-select-section { margin-bottom: 15px; width: 100%; }
         #char-select-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
         .char-list { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
@@ -148,6 +153,7 @@
     </div>
 
     <div id="joystick-touch-zone"></div>
+    <div id="joystick-hint">💡 觸碰螢幕任意處以使用搖桿</div>
     <div id="joystick-visual">
         <div class="joy-base"><div class="joy-stick" id="joy-stick-head"></div></div>
     </div>
@@ -157,8 +163,8 @@
             <span class="modal-close" onclick="toggleHelp(false)">&times;</span>
             <h2>遊戲說明</h2>
             <h3>🕹️ 操作方式</h3>
-            <p><strong>電腦：</strong>鍵盤 ⬅️ ➡️ 或 滑鼠拖曳</p>
-            <p><strong>設定：</strong>可選擇 [按鍵] 或 [搖桿] 模式</p>
+            <p><strong>電腦：</strong>鍵盤 ⬅️ ➡️ 或 滑鼠</p>
+            <p><strong>手機/平板：</strong>可設定 按鍵 或 搖桿</p>
             <h3>❤️ 生存法則</h3>
             <p>每下 <strong>10 層樓</strong>，若受傷會自動回復一顆心。</p>
             <p style="color: yellow; font-size: 14px;">點擊關閉視窗</p>
@@ -240,6 +246,7 @@
     const joyTouchZone = document.getElementById('joystick-touch-zone');
     const joyVisual = document.getElementById('joystick-visual');
     const joyStickHead = document.getElementById('joy-stick-head');
+    const joyHint = document.getElementById('joystick-hint');
 
     // Game Variables
     let GAME_WIDTH = 600, GAME_HEIGHT = 800, gameState = 'MENU', score = 0, frames = 0, gameSpeed = 2, countdownVal = 3, leaderboardData = [], isMouseDown = false, isMuted = true, audioCtx = null;
@@ -250,7 +257,7 @@
     const keys = { left: false, right: false };
     let platforms = [];
 
-    // --- 設定操作模式 ---
+    // --- 操作模式設定 ---
     function setControlMode(mode) {
         controlMode = mode;
         const btns = document.querySelectorAll('.setting-btn');
@@ -263,122 +270,72 @@
         if (mode.startsWith('btn')) {
             controlsLayer.style.display = 'flex';
             joyTouchZone.style.display = 'none';
+            joyHint.style.display = 'none';
             controlsLayer.classList.remove('mode-btn-left', 'mode-btn-right');
             controlsLayer.classList.add('mode-' + mode);
         } else {
             controlsLayer.style.display = 'none';
-            // 如果遊戲中，開啟搖桿區，否則隱藏 (避免遮擋開始畫面)
-            joyTouchZone.style.display = (gameState === 'PLAYING') ? 'block' : 'none';
+            // 搖桿模式下，只有遊戲中才開啟觸控區 (避免擋住選單)
+            joyTouchZone.style.display = (gameState === 'PLAYING' || gameState === 'COUNTDOWN') ? 'block' : 'none';
+            // 顯示提示文字 (如果有開啟)
+            joyHint.style.display = (gameState === 'PLAYING') ? 'block' : 'none';
         }
     }
 
-    // --- 搖桿邏輯 (整合滑鼠與觸控) ---
+    // --- 搖桿邏輯 ---
     function startJoy(x, y, id, isMouse) {
         if (joyData.active) return;
-        
-        // 判斷區域
         const halfWidth = window.innerWidth / 2;
         let isValid = false;
         if (controlMode === 'joy-left' && x < halfWidth) isValid = true;
         if (controlMode === 'joy-right' && x > halfWidth) isValid = true;
 
         if (isValid) {
-            joyData.active = true;
-            joyData.touchId = id;
-            joyData.isMouse = isMouse;
-            joyData.startX = x; joyData.startY = y;
-            joyData.currentX = x; joyData.currentY = y;
-
-            joyVisual.style.display = 'block';
-            joyVisual.style.left = (x - 60) + 'px';
-            joyVisual.style.top = (y - 60) + 'px';
+            joyData.active = true; joyData.touchId = id; joyData.isMouse = isMouse;
+            joyData.startX = x; joyData.startY = y; joyData.currentX = x; joyData.currentY = y;
+            joyVisual.style.display = 'block'; joyVisual.style.left = (x - 60) + 'px'; joyVisual.style.top = (y - 60) + 'px';
             joyStickHead.style.transform = `translate(-50%, -50%)`;
+            joyHint.style.display = 'none'; // 操作時隱藏提示
         }
     }
 
     function moveJoy(x, y) {
-        joyData.currentX = x;
-        joyData.currentY = y;
-        
-        const dx = joyData.currentX - joyData.startX;
-        const dy = joyData.currentY - joyData.startY;
-        const distance = Math.min(Math.sqrt(dx*dx + dy*dy), 35);
-        const angle = Math.atan2(dy, dx);
-        
-        const stickX = Math.cos(angle) * distance;
-        const stickY = Math.sin(angle) * distance;
+        joyData.currentX = x; joyData.currentY = y;
+        const dx = joyData.currentX - joyData.startX; const dy = joyData.currentY - joyData.startY;
+        const distance = Math.min(Math.sqrt(dx*dx + dy*dy), 35); const angle = Math.atan2(dy, dx);
+        const stickX = Math.cos(angle) * distance; const stickY = Math.sin(angle) * distance;
         joyStickHead.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
-
         if (dx < -10) { keys.left = true; keys.right = false; }
         else if (dx > 10) { keys.left = false; keys.right = true; }
         else { keys.left = false; keys.right = false; }
     }
 
     function endJoy() {
-        joyData.active = false;
-        joyData.touchId = null;
-        joyVisual.style.display = 'none';
+        joyData.active = false; joyData.touchId = null; joyVisual.style.display = 'none';
         keys.left = false; keys.right = false;
+        if(gameState === 'PLAYING') joyHint.style.display = 'block'; // 放開後顯示提示
     }
 
-    // Touch Events
-    joyTouchZone.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const t = e.changedTouches[i];
-            startJoy(t.clientX, t.clientY, t.identifier, false);
-        }
-    });
-    joyTouchZone.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        if (!joyData.active || joyData.isMouse) return;
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === joyData.touchId) {
-                moveJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
-            }
-        }
-    });
-    const touchEndHandler = (e) => {
-        e.preventDefault();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === joyData.touchId) endJoy();
-        }
-    };
-    joyTouchZone.addEventListener('touchend', touchEndHandler);
-    joyTouchZone.addEventListener('touchcancel', touchEndHandler);
-
-    // Mouse Events (PC Support)
+    joyTouchZone.addEventListener('touchstart', (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { startJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY, e.changedTouches[i].identifier, false); } });
+    joyTouchZone.addEventListener('touchmove', (e) => { e.preventDefault(); if (!joyData.active || joyData.isMouse) return; for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === joyData.touchId) moveJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY); } });
+    const touchEndHandler = (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === joyData.touchId) endJoy(); } };
+    joyTouchZone.addEventListener('touchend', touchEndHandler); joyTouchZone.addEventListener('touchcancel', touchEndHandler);
     joyTouchZone.addEventListener('mousedown', (e) => { startJoy(e.clientX, e.clientY, 999, true); });
     window.addEventListener('mousemove', (e) => { if (joyData.active && joyData.isMouse) moveJoy(e.clientX, e.clientY); });
     window.addEventListener('mouseup', () => { if (joyData.active && joyData.isMouse) endJoy(); });
 
-    // --- 固定按鍵邏輯 ---
+    // --- 固定按鍵 ---
     function handleBtnInput(e) {
         if (inputSection.style.display === 'block') return;
         let clientX;
-        if (e.type.startsWith('touch')) clientX = e.touches[0].clientX;
-        else { if (e.type === 'mousemove' && !isMouseDown) return; clientX = e.clientX; }
-
-        const leftRect = btnLeft.getBoundingClientRect();
-        const rightRect = btnRight.getBoundingClientRect();
+        if (e.type.startsWith('touch')) clientX = e.touches[0].clientX; else { if (e.type === 'mousemove' && !isMouseDown) return; clientX = e.clientX; }
+        const leftRect = btnLeft.getBoundingClientRect(); const rightRect = btnRight.getBoundingClientRect();
         let hitLeft = false, hitRight = false;
-
-        if (e.touches && e.touches.length > 0) {
-             for (let i = 0; i < e.touches.length; i++) {
-                 const tx = e.touches[i].clientX; const ty = e.touches[i].clientY;
-                 if (tx >= leftRect.left && tx <= leftRect.right && ty >= leftRect.top && ty <= leftRect.bottom) hitLeft = true;
-                 if (tx >= rightRect.left && tx <= rightRect.right && ty >= rightRect.top && ty <= rightRect.bottom) hitRight = true;
-             }
-        } else {
-             const ty = e.clientY;
-             if (clientX >= leftRect.left && clientX <= leftRect.right && ty >= leftRect.top && ty <= leftRect.bottom) hitLeft = true;
-             if (clientX >= rightRect.left && clientX <= rightRect.right && ty >= rightRect.top && ty <= rightRect.bottom) hitRight = true;
-        }
+        if (e.touches && e.touches.length > 0) { for (let i = 0; i < e.touches.length; i++) { const tx = e.touches[i].clientX; const ty = e.touches[i].clientY; if (tx >= leftRect.left && tx <= leftRect.right && ty >= leftRect.top && ty <= leftRect.bottom) hitLeft = true; if (tx >= rightRect.left && tx <= rightRect.right && ty >= rightRect.top && ty <= rightRect.bottom) hitRight = true; } } 
+        else { const ty = e.clientY; if (clientX >= leftRect.left && clientX <= leftRect.right && ty >= leftRect.top && ty <= leftRect.bottom) hitLeft = true; if (clientX >= rightRect.left && clientX <= rightRect.right && ty >= rightRect.top && ty <= rightRect.bottom) hitRight = true; }
         keys.left = hitLeft; keys.right = hitRight;
-        if (hitLeft) btnLeft.classList.add('active'); else btnLeft.classList.remove('active');
-        if (hitRight) btnRight.classList.add('active'); else btnRight.classList.remove('active');
+        if (hitLeft) btnLeft.classList.add('active'); else btnLeft.classList.remove('active'); if (hitRight) btnRight.classList.add('active'); else btnRight.classList.remove('active');
     }
-
     controlsLayer.addEventListener('touchstart', (e) => { e.preventDefault(); handleBtnInput(e); });
     controlsLayer.addEventListener('touchmove', (e) => { e.preventDefault(); handleBtnInput(e); });
     controlsLayer.addEventListener('touchend', (e) => { e.preventDefault(); if (e.touches.length > 0) handleBtnInput(e); else { keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); } });
@@ -394,56 +351,40 @@
         ctx.fillStyle = p.color;
         
         if (charType === 'slime') {
-            let tilt = -p.vx * 3;
-            ctx.beginPath(); ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false);
-            ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10); ctx.fill();
+            let tilt = -p.vx * 3; ctx.beginPath(); ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false); ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10); ctx.fill();
         } else if (charType === 'cube') {
             ctx.fillRect(x, y, w, h); ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
         } else if (charType === 'ghost') {
-            let wave = (!overrideType) ? Math.sin(frames * 0.2) * 2 : 0;
-            ctx.beginPath(); ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); 
-            ctx.lineTo(x + w, y + h + wave); ctx.lineTo(x + w/2, y + h - wave); ctx.lineTo(x, y + h + wave); ctx.fill();
+            let wave = (!overrideType) ? Math.sin(frames * 0.2) * 2 : 0; ctx.beginPath(); ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); ctx.lineTo(x + w, y + h + wave); ctx.lineTo(x + w/2, y + h - wave); ctx.lineTo(x, y + h + wave); ctx.fill();
         } else if (charType === 'bunny') {
-            let earTilt = p.vx * 2;
-            ctx.beginPath(); ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2); ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2); ctx.fill();
+            let earTilt = p.vx * 2; ctx.beginPath(); ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2); ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2); ctx.fill();
         }
-
         let eyeOffset = p.vx * 2, eyeY = y + h - 15;
         if(charType === 'ghost') eyeY = y + 12; if(charType === 'bunny') eyeY = y + 15; if(charType === 'cube') eyeY = y + 10;
-
         ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + w/2 - 7 + eyeOffset, eyeY, 4, 0, Math.PI*2); ctx.arc(x + w/2 + 7 + eyeOffset, eyeY, 4, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = 'black'; ctx.beginPath();
         let pupilX = (p.vx > 0) ? 1 : (p.vx < 0 ? -1 : 0);
         ctx.arc(x + w/2 - 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2); ctx.arc(x + w/2 + 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2); ctx.fill();
-
-        if(p.invincibleTimer > 0) { ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); }
-        else { ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); }
+        if(p.invincibleTimer > 0) { ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); } else { ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); }
     }
 
-    // 初始化 UI
     function initCharSelect() {
         if (!charListContainer) return;
         charListContainer.innerHTML = '';
         characters.forEach((char, index) => {
-            const containerDiv = document.createElement('div');
-            containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`;
-            containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
+            const containerDiv = document.createElement('div'); containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`; containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
             const iconBox = document.createElement('div'); iconBox.className = 'char-icon-box';
-            const cvs = document.createElement('canvas'); cvs.width = 30; cvs.height = 30;
-            const c = cvs.getContext('2d');
+            const cvs = document.createElement('canvas'); cvs.width = 30; cvs.height = 30; const c = cvs.getContext('2d');
             drawCharacter(c, { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 }, char.id);
             iconBox.appendChild(cvs); containerDiv.appendChild(iconBox);
-            const nameLabel = document.createElement('div'); nameLabel.className = 'char-name'; nameLabel.innerText = char.name;
-            containerDiv.appendChild(nameLabel); charListContainer.appendChild(containerDiv);
+            const nameLabel = document.createElement('div'); nameLabel.className = 'char-name'; nameLabel.innerText = char.name; containerDiv.appendChild(nameLabel);
+            charListContainer.appendChild(containerDiv);
         });
     }
 
     function selectCharacter(index) {
         currentCharIndex = index; player.color = characters[index].color;
-        document.querySelectorAll('.char-option').forEach((opt, i) => {
-            if(i === index) opt.classList.add('selected'); else opt.classList.remove('selected');
-        });
+        document.querySelectorAll('.char-option').forEach((opt, i) => { if(i === index) opt.classList.add('selected'); else opt.classList.remove('selected'); });
     }
 
     // 音效
@@ -483,46 +424,48 @@
         else { modalOverlay.style.display = 'none'; if (gameState === 'PAUSED') { gameState = previousState; pauseText.style.display = 'none'; } }
     }
 
+    // --- 修正開始按鈕的點擊監聽 (增加 touchstart 以適應所有觸控裝置) ---
     function startGameClick(e) {
-        // 防止誤觸
         if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn' || e.target.closest('.control-btn') || e.target.closest('.setting-btn') || e.target.closest('.char-option') || e.target.closest('.icon-btn')) return;
         if (inputSection.style.display === 'block') return;
         
-        try { if(!isMuted) initAudio(); } catch(err){} // 防止音效錯誤卡死
+        try { if(!isMuted) initAudio(); } catch(err){}
 
         if (gameState === 'MENU' || gameState === 'GAMEOVER') startCountdown();
     }
+    // 綁定兩種事件確保反應
+    startScreen.addEventListener('click', startGameClick);
+    startScreen.addEventListener('touchstart', (e) => { 
+        // 排除按鈕區域的觸控
+        if (!e.target.closest('.setting-btn') && !e.target.closest('.char-option')) {
+            startGameClick(e); 
+        }
+    });
 
     function startCountdown() {
         gameState = 'COUNTDOWN'; startScreen.style.display = 'none'; countdownVal = 3; resetGameData(); playTone('count');
         
-        // 如果是搖桿模式，開啟觸控層
-        if (controlMode.startsWith('joy')) joyTouchZone.style.display = 'block';
+        // 確保搖桿觸控區被開啟
+        if (controlMode.startsWith('joy')) {
+            joyTouchZone.style.display = 'block';
+            joyHint.style.display = 'none'; // 倒數時不顯示提示，開始後才顯示
+        }
 
-        let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; } }, 1000);
+        let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; if (controlMode.startsWith('joy')) joyHint.style.display = 'block'; } }, 1000);
     }
 
     function resetGameData() {
         score = 0; frames = 0; gameSpeed = 2.2; player.hp = 100; player.x = GAME_WIDTH / 2 - player.width / 2; player.y = 100; player.vx = 0; player.vy = 0; player.invincibleTimer = 0; player.floorsSinceLastHeal = 0; 
-        
         platforms = [];
-        // 安全開局：第一塊平台置中
-        let startY = 250;
-        let firstPlat = new Platform(startY, 'normal');
-        firstPlat.x = GAME_WIDTH / 2 - firstPlat.width / 2;
-        platforms.push(firstPlat);
+        let startY = 250; let firstPlat = new Platform(startY, 'normal'); firstPlat.x = GAME_WIDTH / 2 - firstPlat.width / 2; platforms.push(firstPlat);
         player.x = GAME_WIDTH / 2 - player.width / 2; player.y = startY - player.height;
-        
         for (let i = 1; i < 7; i++) platforms.push(new Platform(startY + i * 140, 'normal'));
         updateUI();
     }
 
     function gameOver() {
         playTone('gameover'); gameState = 'GAMEOVER'; isMouseDown = false; keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active');
-        
-        // 隱藏搖桿
-        endJoy(); joyTouchZone.style.display = 'none';
-
+        endJoy(); joyTouchZone.style.display = 'none'; joyHint.style.display = 'none';
         startTitle.innerText = "遊戲結束"; startDesc.innerHTML = `最終成績: ${score} 樓<br><span class="blink">點擊畫面重試</span>`; startDesc.style.display = 'block';
         if (checkHighscore(score)) { inputSection.style.display = 'block'; startDesc.style.display = 'none'; nameInput.value = ""; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; } else { inputSection.style.display = 'none'; }
         fetchLeaderboard(); startScreen.style.display = 'flex';
@@ -596,7 +539,6 @@
     function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
     function checkHighscore(currentScore) { if (currentScore === 0) return false; if (leaderboardData.length === 0) return true; if (leaderboardData.length < 10) return true; return currentScore > leaderboardData[leaderboardData.length - 1].score; }
 
-    // 初始化
     setControlMode('btn-left');
     initCharSelect(); 
     fetchLeaderboard();
