@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>史萊姆上樓梯 - Slime Climb</title>
+    <title>史萊姆上樓梯 - Slime Climb v3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -45,6 +45,7 @@
             transition: background 0.05s, transform 0.05s;
             backdrop-filter: blur(4px);
             cursor: pointer;
+            touch-action: none;
         }
         .touch-btn:active, .touch-btn.active {
             background: rgba(255, 255, 255, 0.6);
@@ -53,7 +54,6 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
         }
         
-        /* Tab Styles */
         .tab-btn {
             padding: 4px 8px;
             font-size: 10px;
@@ -71,7 +71,6 @@
             font-weight: bold;
         }
 
-        /* Platform Legend Styles */
         .legend-item {
             display: flex;
             align-items: center;
@@ -85,6 +84,16 @@
             display: inline-block;
             position: relative;
         }
+        
+        /* Fixed Modal Overlay - Highest Z-Index */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100; 
+        }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col items-center justify-center text-white relative">
@@ -92,15 +101,24 @@
     <div class="relative w-full h-full max-w-[480px] max-h-[640px] flex items-center justify-center z-10">
         <canvas id="gameCanvas" width="480" height="640" class="bg-gray-800 rounded-lg border-4 border-gray-600 w-full h-full object-contain"></canvas>
         
-        <!-- UI: Rules Button -->
-        <button onclick="toggleRules()" class="absolute top-4 right-4 z-30 bg-gray-700/80 p-2 rounded-full hover:bg-gray-600 border border-gray-500 transition shadow-lg">
+        <!-- UI: Global Buttons (Rules & Leaderboard) - Z-index 50 (Above Screens, Below Modals) -->
+        <!-- Rules Button (Top Right) -->
+        <button id="btn-rules" onclick="toggleRules(event)" class="absolute top-4 right-4 z-50 bg-gray-700/80 p-2 rounded-full hover:bg-gray-600 border border-gray-500 transition shadow-lg">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </button>
 
+        <!-- Leaderboard Button (Top Left) -->
+        <button id="btn-leaderboard" onclick="toggleLeaderboard(event)" class="absolute top-4 left-4 z-50 bg-yellow-600/30 p-2 rounded-lg border border-yellow-500/50 hover:bg-yellow-600/50 transition flex items-center gap-2 group">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span class="text-yellow-400 pixel-font text-[10px] hidden group-hover:inline">RANK</span>
+        </button>
+
         <!-- UI: Rules Modal -->
-        <div id="rulesModal" class="hidden absolute inset-0 bg-black/95 z-40 flex flex-col items-center justify-center p-6 text-center rounded-lg overflow-y-auto">
+        <div id="rulesModal" class="hidden modal-overlay bg-black/95 flex flex-col items-center justify-center p-6 text-center rounded-lg overflow-y-auto">
             <h2 class="text-xl text-yellow-400 pixel-font mb-4 mt-10 md:mt-0">遊戲說明</h2>
             
             <div class="text-xs text-gray-300 mb-6 max-w-sm text-left mx-auto space-y-4 w-full">
@@ -119,7 +137,7 @@
                             <div class="flex justify-between items-center mb-1">
                                 <span class="text-gray-400 font-bold">石像鬼 (Gargoyle)</span>
                             </div>
-                            <p class="text-gray-400 leading-tight">【重裝型】高度約 150px。<span class="text-gray-200">落地即停</span>，免疫<span class="text-red-400">尖刺</span>緩速，<span class="text-yellow-500">易碎地板</span>碎得快。</p>
+                            <p class="text-gray-400 leading-tight">【重裝型】高度約 150px。<span class="text-gray-200">落地即停</span>，免疫<span class="text-red-400">尖刺</span>緩速，<span class="text-yellow-500">易碎地板</span>碎得快。<br><strong class="text-pink-400">(踩彈簧只彈一次)</strong></p>
                         </div>
                         <div>
                             <div class="flex justify-between items-center mb-1">
@@ -167,16 +185,37 @@
                     </div>
                 </div>
             </div>
-            <button onclick="toggleRules()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-blue-800 mb-6 md:mb-0">關閉 (CLOSE)</button>
+            
+            <button onclick="toggleRules(event)" class="w-full max-w-sm py-4 bg-blue-600 hover:bg-blue-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-blue-800 mb-6 md:mb-0 active:scale-95 transition-transform block">
+                關閉 (CLOSE)
+            </button>
         </div>
 
-        <!-- UI: Countdown -->
-        <div id="countdownOverlay" class="hidden absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+        <!-- UI: Leaderboard Modal -->
+        <div id="leaderboardModal" class="hidden modal-overlay bg-black/95 flex flex-col items-center justify-center p-6 text-center rounded-lg">
+            <h2 class="text-xl text-yellow-400 pixel-font mb-6">排行榜 (TOP 10)</h2>
+            <div class="w-full max-w-xs flex gap-1 px-1">
+                <button onclick="switchTab('all', 'modal')" id="tab-modal-all" class="tab-btn active-tab flex-1">全部</button>
+                <button onclick="switchTab('slime', 'modal')" id="tab-modal-slime" class="tab-btn flex-1 text-green-400">史</button>
+                <button onclick="switchTab('gargoyle', 'modal')" id="tab-modal-gargoyle" class="tab-btn flex-1 text-gray-400">石</button>
+                <button onclick="switchTab('ninja', 'modal')" id="tab-modal-ninja" class="tab-btn flex-1 text-blue-400">忍</button>
+                <button onclick="switchTab('boo', 'modal')" id="tab-modal-boo" class="tab-btn flex-1 text-purple-400">幽</button>
+            </div>
+            <div class="w-full max-w-xs bg-gray-800 rounded-b p-3 h-64 overflow-y-auto border border-gray-700 mb-6">
+                <div id="leaderboardModalContent" class="text-xs space-y-1">
+                    <p class="text-center text-gray-500 mt-4">Loading...</p>
+                </div>
+            </div>
+            <button onclick="toggleLeaderboard(event)" class="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-gray-800">關閉 (CLOSE)</button>
+        </div>
+
+        <!-- UI: Countdown (Fixed Z-100) -->
+        <div id="countdownOverlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
             <span id="countdownText" class="text-8xl font-bold text-yellow-400 pixel-font drop-shadow-[0_4px_0_rgba(0,0,0,1)] animate-bounce">3</span>
         </div>
         
-        <!-- UI: Start Screen -->
-        <div id="startScreen" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center rounded-lg p-6 text-center z-10">
+        <!-- UI: Start Screen (Absolute Z-40) -->
+        <div id="startScreen" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center rounded-lg p-6 text-center z-40">
             <h1 class="text-3xl md:text-4xl text-green-400 mb-2 pixel-font tracking-tighter shadow-green-500/50 drop-shadow-lg">SLIME CLIMB</h1>
             <p class="text-gray-400 mb-4 text-sm">史萊姆上樓梯</p>
             <p class="mb-2 text-yellow-300 blink pixel-font text-xs">SELECT CHARACTER</p>
@@ -190,7 +229,9 @@
                     <span class="font-bold text-gray-300 text-sm">石像鬼</span>
                 </button>
                 <button onclick="selectChar('ninja')" class="p-2 border-2 border-blue-500 rounded hover:bg-blue-900 transition flex flex-col items-center group bg-black/50">
-                    <div class="w-6 h-6 bg-blue-500 rounded-sm mb-1 group-hover:scale-110 transition"></div>
+                    <div class="w-6 h-6 mb-1 group-hover:scale-110 transition flex items-center justify-center">
+                        <div style="width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-bottom:20px solid #3b82f6;"></div>
+                    </div>
                     <span class="font-bold text-blue-400 text-sm">忍者蛙</span>
                 </button>
                 <button onclick="selectChar('boo')" class="p-2 border-2 border-purple-500 rounded hover:bg-purple-900 transition flex flex-col items-center group bg-black/50">
@@ -198,19 +239,20 @@
                     <span class="font-bold text-purple-300 text-sm">幽靈</span>
                 </button>
             </div>
+            
             <div class="flex items-center justify-center space-x-2 mt-2 bg-gray-800/50 p-2 rounded border border-gray-700">
+                <span class="text-xs text-gray-400 font-bold mr-1">操作方式：</span>
                 <button id="layoutToggleBtn" onclick="toggleControlLayout()" class="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600 border border-gray-500 text-white min-w-[80px]">
                     標準 (左移/右跳)
                 </button>
             </div>
         </div>
 
-        <!-- UI: Game Over & Leaderboard -->
-        <div id="gameOverScreen" class="hidden absolute inset-0 bg-black/95 flex flex-col items-center justify-center rounded-lg p-4 z-20">
+        <!-- UI: Game Over (Absolute Z-40) -->
+        <div id="gameOverScreen" class="hidden absolute inset-0 bg-black/95 flex flex-col items-center justify-center rounded-lg p-4 z-40">
             <h2 class="text-2xl text-red-500 mb-2 pixel-font">GAME OVER</h2>
             <div class="text-lg mb-4">Score: <span id="finalScore" class="text-yellow-400 font-bold">0</span></div>
             
-            <!-- Submit Form -->
             <div id="submitScoreContainer" class="w-full max-w-xs mb-4 transition-all duration-300">
                 <div id="submitForm" class="flex flex-col gap-2">
                     <input type="text" id="playerName" placeholder="輸入名字 (Enter Name)" maxlength="10" 
@@ -219,22 +261,20 @@
                         上傳分數 (SUBMIT)
                     </button>
                 </div>
-                <!-- Success Message (Hidden by default) -->
                 <div id="submitSuccessMsg" class="hidden text-center text-green-400 font-bold border border-green-500 bg-green-900/30 p-2 rounded">
                     ✓ 上傳成功!
                 </div>
             </div>
 
-            <!-- Leaderboard Tabs -->
+            <!-- Leaderboard Tabs (Game Over) -->
             <div class="w-full max-w-xs flex gap-1 px-1">
-                <button onclick="switchTab('all')" id="tab-all" class="tab-btn active-tab flex-1">全部</button>
-                <button onclick="switchTab('slime')" id="tab-slime" class="tab-btn flex-1 text-green-400">史</button>
-                <button onclick="switchTab('gargoyle')" id="tab-gargoyle" class="tab-btn flex-1 text-gray-400">石</button>
-                <button onclick="switchTab('ninja')" id="tab-ninja" class="tab-btn flex-1 text-blue-400">忍</button>
-                <button onclick="switchTab('boo')" id="tab-boo" class="tab-btn flex-1 text-purple-400">幽</button>
+                <button onclick="switchTab('all', 'gameover')" id="tab-gameover-all" class="tab-btn active-tab flex-1">全部</button>
+                <button onclick="switchTab('slime', 'gameover')" id="tab-gameover-slime" class="tab-btn flex-1 text-green-400">史</button>
+                <button onclick="switchTab('gargoyle', 'gameover')" id="tab-gameover-gargoyle" class="tab-btn flex-1 text-gray-400">石</button>
+                <button onclick="switchTab('ninja', 'gameover')" id="tab-gameover-ninja" class="tab-btn flex-1 text-blue-400">忍</button>
+                <button onclick="switchTab('boo', 'gameover')" id="tab-gameover-boo" class="tab-btn flex-1 text-purple-400">幽</button>
             </div>
 
-            <!-- Leaderboard Content -->
             <div class="w-full max-w-xs bg-gray-800 rounded-b p-3 h-40 overflow-y-auto border border-gray-700 mb-4">
                 <div id="leaderboardContent" class="text-xs space-y-1">
                     <p class="text-center text-gray-500 mt-4">Loading...</p>
@@ -246,26 +286,25 @@
             </button>
         </div>
 
-        <!-- HUD -->
-        <div id="hud" class="absolute top-2 left-2 text-white pixel-font text-xs z-0 hidden pointer-events-none drop-shadow-md">
+        <!-- HUD Z-20 -->
+        <div id="hud" class="absolute top-2 left-2 text-white pixel-font text-xs z-20 hidden pointer-events-none drop-shadow-md">
             SCORE: <span id="scoreDisplay">0</span>
         </div>
     </div>
 
-    <!-- Touch Controls -->
-    <div id="touchControls" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-6 pb-2 flex justify-between items-end z-50 pointer-events-none select-none 
-                                   lg:max-w-none lg:left-0 lg:translate-x-0 lg:bottom-10 lg:px-20 lg:pb-4">
+    <!-- Touch Controls (Fixed Z-50) -->
+    <div id="touchControls" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-6 pb-2 flex justify-between items-end z-50 pointer-events-none select-none lg:max-w-none lg:left-0 lg:translate-x-0 lg:bottom-10 lg:px-20 lg:pb-4">
         <div id="dpadContainer" class="flex gap-4 pointer-events-auto">
-            <div id="btnLeft" class="touch-btn w-16 h-16 active:bg-white/30" data-key="left">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            <div id="btnLeft" class="touch-btn w-24 h-24 active:bg-white/30" data-key="left">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </div>
-            <div id="btnRight" class="touch-btn w-16 h-16 active:bg-white/30" data-key="right">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <div id="btnRight" class="touch-btn w-24 h-24 active:bg-white/30" data-key="right">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </div>
         </div>
         <div id="actionContainer" class="pointer-events-auto">
-            <div id="btnJump" class="touch-btn w-20 h-20 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
-                <span class="text-sm">JUMP</span>
+            <div id="btnJump" class="touch-btn w-28 h-28 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
+                <span class="text-base">JUMP</span>
             </div>
         </div>
     </div>
@@ -279,10 +318,11 @@
     const ctx = canvas.getContext('2d');
     
     // Game State
-    let gameState = 'MENU'; 
+    let gameState = 'MENU';
+    let previousState = 'MENU';
     let score = 0;
     let cameraY = 0;
-    let cameraSpeed = 0.3; // Slower start speed
+    let cameraSpeed = 0.3; 
     let controlsLayout = 'standard';
     let currentPlayerType = 'slime'; 
     let leaderboardsData = { all: [] }; 
@@ -292,14 +332,12 @@
     let player;
     let platforms = [];
     
-    // UPDATED PHYSICS
+    // PHYSICS
     const CHARACTERS = {
         slime: { name: "史萊姆", color: "#4ade80", w: 24, h: 24, speed: 6, jumpForce: 13.5, gravity: 0.6, friction: 0.85, type: "slime" },
         gargoyle: { name: "石像鬼", color: "#9ca3af", w: 28, h: 28, speed: 6, jumpForce: 16.5, gravity: 0.9, friction: 0.85, type: "gargoyle" },
         ninja: { name: "忍者蛙", color: "#3b82f6", w: 20, h: 20, speed: 6, jumpForce: 13, gravity: 0.7, friction: 0.85, type: "ninja" },
-        boo: { name: "幽靈", color: "#e9d5ff", w: 22, h: 22, speed: 6, 
-               jumpForce: 10.5, 
-               gravity: 0.35, friction: 0.95, type: "boo" } // Friction 0.95 for drift
+        boo: { name: "幽靈", color: "#e9d5ff", w: 22, h: 22, speed: 6, jumpForce: 10.5, gravity: 0.35, friction: 0.95, type: "boo" } 
     };
 
     class Player {
@@ -321,7 +359,7 @@
         }
 
         update() {
-            // Control Lock Logic
+            // Control Lock
             if (this.controlLock > 0) {
                 this.controlLock--;
             } else {
@@ -331,17 +369,13 @@
             
             this.vx *= this.stats.friction;
             
-            // Gargoyle Special: Immediate stop
+            // Gargoyle stop
             if (this.type === 'gargoyle' && this.controlLock <= 0 && !keys.right && !keys.left) {
                 this.vx *= 0.1;
             }
             
-            // Max Speed Cap (Base speed)
+            // Speed & Debuffs
             let currentSpeedLimit = this.stats.speed;
-            
-            // Check for debuffs (Spike)
-            // We check collision again for debuff status or use state from collision loop
-            // For simplicity, we check proximity to spike platform
             let onSpike = false;
             let onIce = false;
             platforms.forEach(p => {
@@ -351,28 +385,19 @@
                 }
             });
 
-            if (onSpike && this.type !== 'gargoyle' && this.type !== 'boo') {
-                currentSpeedLimit *= 0.5; // Half max speed on spike
-            }
+            if (onSpike && this.type !== 'gargoyle' && this.type !== 'boo') currentSpeedLimit *= 0.5;
 
             if (this.vx > currentSpeedLimit) this.vx = currentSpeedLimit;
             if (this.vx < -currentSpeedLimit) this.vx = -currentSpeedLimit;
 
-            // Ice Physics Adjustment
+            // Ice Physics
             if (onIce) {
                 if (this.type === 'gargoyle') {
-                    // Gargoyle slides slightly instead of stopping instantly
-                    // We need to override the friction/stop logic slightly
-                    // But we already applied vx *= 0.1 above if released. 
-                    // To make it slide, we need to undo that or apply less harsh stop
                     if (this.controlLock <= 0 && !keys.right && !keys.left) {
-                        // Undo the 0.1, apply softer friction
-                        this.vx /= 0.1; // Restore
-                        this.vx *= 0.8; // Slide a bit
+                        this.vx /= 0.1; 
+                        this.vx *= 0.8; 
                     }
                 } else if (this.type === 'boo') {
-                    // Boo slides very far (Low friction)
-                    // Undo standard friction, apply very low friction
                     this.vx /= this.stats.friction; 
                     this.vx *= 0.99; 
                 }
@@ -399,7 +424,6 @@
 
             this.onGround = false;
             platforms.forEach(p => {
-                // Breakable logic check: triggered and timer > 120 (broken) -> no collision
                 if (p.type === 'breakable' && p.broken) return;
 
                 if (this.vy >= 0 && this.y + this.h <= p.y + p.h + this.vy && this.y + this.h >= p.y && this.x + this.w > p.x && this.x < p.x + p.w) {
@@ -410,21 +434,25 @@
                     this.wallJumpCount = 0; 
                     this.controlLock = 0; 
                     
-                    // Platform Interactions
-                    if (p.type === 'ice') {
-                        // Logic handled in velocity update for smoothness
-                    } else if (p.type === 'conveyor_l') {
-                        this.x -= 2;
-                    } else if (p.type === 'conveyor_r') {
-                        this.x += 2;
-                    } else if (p.type === 'moving') {
-                        this.x += p.dx;
-                    } else if (p.type === 'spring') {
-                        // Spring Jump
-                        this.vy = (this.type === 'gargoyle') ? -15 : -22; 
-                        this.onGround = false; // Immediately airborne
+                    if (p.type === 'conveyor_l') this.x -= 2;
+                    else if (p.type === 'conveyor_r') this.x += 2;
+                    else if (p.type === 'moving') this.x += p.dx;
+                    else if (p.type === 'spring') {
+                        // === MODIFIED SPRING LOGIC ===
+                        if (this.type === 'gargoyle') {
+                            if (!p.hasSprung) {
+                                this.vy = -15; 
+                                this.onGround = false;
+                                p.hasSprung = true; // Mark used
+                            } else {
+                                // Treat as normal ground (already set onGround=true)
+                                // Do nothing, just stay on ground
+                            }
+                        } else {
+                            this.vy = -22; 
+                            this.onGround = false;
+                        }
                     } else if (p.type === 'breakable') {
-                        // Trigger timer on first touch
                         p.triggered = true;
                     }
                 }
@@ -435,16 +463,13 @@
 
         jump() {
             if (this.onGround) {
-                // Check if on spike and not immune
                 let onSpike = false;
                 platforms.forEach(p => {
                      if (this.y + this.h === p.y && this.x + this.w > p.x && this.x < p.x + p.w && p.type === 'spike') onSpike = true;
                 });
                 
                 let force = this.stats.jumpForce;
-                if (onSpike && this.type !== 'gargoyle' && this.type !== 'boo') {
-                    force *= 0.5; // Half jump height
-                }
+                if (onSpike && this.type !== 'gargoyle' && this.type !== 'boo') force *= 0.5;
                 
                 this.vy = -force;
                 this.jumps = 1;
@@ -465,13 +490,37 @@
             ctx.fillStyle = this.stats.color;
             let drawW = this.w;
             let drawH = this.h;
+            
+            // Squash and Stretch
             if (Math.abs(this.vy) > 2) { drawW *= 0.8; drawH *= 1.1; } 
             else if (Math.abs(this.vx) > 1) { drawW *= 1.1; drawH *= 0.9; }
-            ctx.fillRect(this.x + (this.w - drawW)/2, this.y + (this.h - drawH), drawW, drawH);
+
+            // === NINJA TRIANGLE DRAW ===
+            if (this.type === 'ninja') {
+                const centerX = this.x + this.w / 2;
+                const bottomY = this.y + this.h;
+                
+                ctx.beginPath();
+                // Top point
+                ctx.moveTo(centerX, bottomY - drawH);
+                // Bottom right
+                ctx.lineTo(centerX + drawW/2, bottomY);
+                // Bottom left
+                ctx.lineTo(centerX - drawW/2, bottomY);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // Normal Rect Draw
+                ctx.fillRect(this.x + (this.w - drawW)/2, this.y + (this.h - drawH), drawW, drawH);
+            }
+
             ctx.fillStyle = "white";
             let eyeOffset = (this.vx > 0) ? 4 : (this.vx < 0) ? -4 : 0;
-            ctx.fillRect(this.x + this.w/2 + eyeOffset - 6, this.y + 6, 4, 4);
-            ctx.fillRect(this.x + this.w/2 + eyeOffset + 2, this.y + 6, 4, 4);
+            // Eyes position adjustment for triangle
+            let eyeY = (this.type === 'ninja') ? this.y + (this.h - drawH) + drawH/2 : this.y + 6;
+            
+            ctx.fillRect(this.x + this.w/2 + eyeOffset - 6, eyeY, 4, 4);
+            ctx.fillRect(this.x + this.w/2 + eyeOffset + 2, eyeY, 4, 4);
         }
     }
 
@@ -483,9 +532,10 @@
             this.h = 16;
             this.type = type;
             this.broken = false;
-            this.triggered = false; // New: triggered state
+            this.triggered = false; 
+            this.hasSprung = false; // New: For Gargoyle spring logic
             this.breakTimer = 0;
-            this.dx = 2; // for moving platform
+            this.dx = 2; 
             this.moveRange = 100;
             this.startX = x;
         }
@@ -493,56 +543,38 @@
         update() {
             if (this.type === 'moving') {
                 this.x += this.dx;
-                // Bounce logic
                 if (this.x > this.startX + this.moveRange || this.x < this.startX - this.moveRange || this.x + this.w > canvas.width || this.x < 0) {
                     this.dx *= -1;
                 }
             }
             
             if (this.type === 'breakable' && this.triggered) {
-                // Timer runs continuously if triggered
-                // 120 frames = 2 seconds
                 let limit = 120; 
-                // We access currentPlayerType from global scope or pass it in. Global is easiest here.
                 if (currentPlayerType === 'gargoyle') limit = 84; 
                 if (currentPlayerType === 'boo') limit = 180; 
-                
                 this.breakTimer++;
-                if (this.breakTimer > limit) {
-                    this.broken = true;
-                }
+                if (this.breakTimer > limit) this.broken = true;
             }
         }
 
         draw() {
-            if (this.broken) return; // Don't draw if broken
+            if (this.broken) return;
 
             ctx.save();
             ctx.translate(this.x, this.y);
 
-            // Base Background
             if (this.type === 'ice') {
-                // Ice: Cyan with gloss
                 ctx.fillStyle = '#a5f3fc';
                 ctx.fillRect(0, 0, this.w, this.h);
                 ctx.fillStyle = 'rgba(255,255,255,0.6)';
                 ctx.beginPath();
                 ctx.moveTo(5, 0); ctx.lineTo(15, 0); ctx.lineTo(10, this.h); ctx.lineTo(0, this.h);
                 ctx.fill();
-                ctx.moveTo(20, 0); ctx.lineTo(25, 0); ctx.lineTo(20, this.h); ctx.lineTo(15, this.h);
-                ctx.fill();
             }
             else if (this.type === 'breakable') {
-                // Breakable: Brown, cracks if triggered
-                // Flash red if > 1s (60 frames)
-                if (this.breakTimer > 60 && Math.floor(Date.now()/100)%2===0) {
-                    ctx.fillStyle = '#fca5a5'; // Light red flash
-                } else {
-                    ctx.fillStyle = '#b45309'; // Brown
-                }
+                if (this.breakTimer > 60 && Math.floor(Date.now()/100)%2===0) ctx.fillStyle = '#fca5a5'; 
+                else ctx.fillStyle = '#b45309'; 
                 ctx.fillRect(0, 0, this.w, this.h);
-                
-                // Draw Cracks
                 if (this.triggered) {
                     ctx.strokeStyle = '#451a03';
                     ctx.lineWidth = 1;
@@ -556,27 +588,20 @@
                 }
             }
             else if (this.type === 'spike') {
-                // Spike: Gray base, Red Spikes
-                ctx.fillStyle = '#9ca3af'; // Gray base
+                ctx.fillStyle = '#9ca3af'; 
                 ctx.fillRect(0, 0, this.w, this.h);
-                
-                ctx.fillStyle = '#ef4444'; // Red spikes
+                ctx.fillStyle = '#ef4444'; 
                 ctx.beginPath();
                 for(let i=0; i<this.w; i+=10) {
-                    // Triangle spikes
-                    ctx.moveTo(i, 0);
-                    ctx.lineTo(i + 5, -6);
-                    ctx.lineTo(i + 10, 0);
+                    ctx.moveTo(i, 0); ctx.lineTo(i + 5, -6); ctx.lineTo(i + 10, 0);
                 }
                 ctx.fill();
             }
             else if (this.type === 'conveyor_l' || this.type === 'conveyor_r') {
-                // Conveyor: Dark gray with arrows
                 ctx.fillStyle = '#4b5563'; 
                 ctx.fillRect(0, 0, this.w, this.h);
-                
-                ctx.fillStyle = '#9ca3af'; // Light gray arrows
-                let offset = (Math.floor(Date.now()/20) % 20); // Animation
+                ctx.fillStyle = '#9ca3af'; 
+                let offset = (Math.floor(Date.now()/20) % 20); 
                 if (this.type === 'conveyor_r') {
                     for(let i=-20; i<this.w; i+=20) {
                         let drawX = i + offset;
@@ -590,42 +615,40 @@
                 }
             }
             else if (this.type === 'spring') {
-                // Spring: Pink block with coil
-                ctx.fillStyle = '#f472b6';
-                ctx.fillRect(0, 0, this.w, this.h);
-                
-                ctx.strokeStyle = '#831843';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                // Draw simple zigzag coil on top
-                ctx.moveTo(this.w/2 - 10, 0);
-                ctx.lineTo(this.w/2 - 5, -5);
-                ctx.lineTo(this.w/2 + 5, 0);
-                ctx.lineTo(this.w/2 + 10, -5);
-                ctx.stroke();
+                // If Gargoyle used it, make it look 'flat' or 'used'
+                if (this.hasSprung) {
+                    ctx.fillStyle = '#be185d'; // Darker pink
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    ctx.fillStyle = '#831843';
+                    ctx.fillRect(0, 4, this.w, 4); // Compressed coil
+                } else {
+                    ctx.fillStyle = '#f472b6';
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    ctx.strokeStyle = '#831843';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(this.w/2 - 10, 0);
+                    ctx.lineTo(this.w/2 - 5, -5);
+                    ctx.lineTo(this.w/2 + 5, 0);
+                    ctx.lineTo(this.w/2 + 10, -5);
+                    ctx.stroke();
+                }
             }
             else if (this.type === 'moving') {
-                // Moving: Green with engine details
                 ctx.fillStyle = '#4ade80';
                 ctx.fillRect(0, 0, this.w, this.h);
-                
-                ctx.fillStyle = '#166534'; // Dark green details
+                ctx.fillStyle = '#166534'; 
                 ctx.fillRect(2, 4, this.w-4, 2);
-                ctx.fillRect(5, 10, 4, 4); // "Wheels"
+                ctx.fillRect(5, 10, 4, 4); 
                 ctx.fillRect(this.w-9, 10, 4, 4);
             }
             else {
-                // Normal: Mossy Stone
                 ctx.fillStyle = '#65a30d'; 
                 ctx.fillRect(0, 0, this.w, this.h);
-                // Moss dots
                 ctx.fillStyle = '#365314';
-                ctx.fillRect(5, 5, 2, 2);
-                ctx.fillRect(this.w-10, 8, 2, 2);
-                ctx.fillRect(this.w/2, 4, 2, 2);
+                ctx.fillRect(5, 5, 2, 2); ctx.fillRect(this.w-10, 8, 2, 2); ctx.fillRect(this.w/2, 4, 2, 2);
             }
 
-            // Shadow for all (bottom edge)
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
             ctx.fillRect(0, this.h - 4, this.w, 4);
 
@@ -638,20 +661,17 @@
         platforms = [];
         score = 0;
         cameraY = 0;
-        cameraSpeed = 0.3; // Starts slower
+        cameraSpeed = 0.3; 
         
         const startGroundY = canvas.height - 250;
         platforms.push(new Platform(0, startGroundY, canvas.width));
-        
         player = new Player(charType, startGroundY);
-        
-        for(let i=1; i<6; i++) { 
-            generatePlatform(startGroundY - 100 * i); 
-        }
+        for(let i=1; i<6; i++) { generatePlatform(startGroundY - 100 * i); }
         
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
         document.getElementById('touchControls').classList.remove('pointer-events-none');
+        document.getElementById('btn-leaderboard').classList.add('hidden'); // Hide Leaderboard in Game
         startCountdown();
     }
 
@@ -679,19 +699,14 @@
     }
 
     function generatePlatform(yPos) {
-        // Decide if we spawn 1 or 2 platforms
         const spawnCount = (score > 200 && Math.random() < 0.3) ? 2 : 1;
         
-        // Helper to spawn one
         const spawnOne = (minX, maxX) => {
             const w = 80 + Math.random() * 60;
-            // Ensure bounds
             if (maxX < minX + w) maxX = minX + w;
             if (maxX > canvas.width) maxX = canvas.width;
-            
             const x = Math.min(canvas.width - w, Math.max(0, minX + Math.random() * (maxX - minX - w)));
             
-            // Type Selection
             let type = 'normal';
             const r = Math.random();
             if (score > 300) {
@@ -703,17 +718,14 @@
                 else if (r > 0.70) type = 'ice';
                 else if (r > 0.65) type = 'moving';
             }
-            
             platforms.push(new Platform(x, yPos, w, type));
             return {x, w};
         };
 
         if (spawnCount === 1) {
-            // Logic to keep it reachable (same as before)
             const w = 80 + Math.random() * 60;
             let minX = 0;
             let maxX = canvas.width - w;
-            
             if (platforms.length > 0) {
                 const prev = platforms[platforms.length - 1];
                 const reach = 240; 
@@ -721,12 +733,8 @@
                 const validMax = Math.min(canvas.width - w, prev.x + prev.w + reach - w);
                 if (validMin < validMax) { minX = validMin; maxX = validMax; }
             }
-            
-            // Custom simplified spawn logic for single to allow type selection
-            // We reuse the type logic logic by calling spawnOne roughly in range
             spawnOne(minX, maxX + w); 
         } else {
-            // Spawn two platforms (Split screen roughly)
             spawnOne(0, canvas.width / 2);
             spawnOne(canvas.width / 2, canvas.width);
         }
@@ -735,9 +743,7 @@
     function update() {
         if (gameState !== 'PLAYING') return;
         
-        // Scroll Speed: Start 0.3, gradually increase but capped
         cameraSpeed = 0.3 + Math.min(1.5, score / 8000); 
-        
         if (player.y < cameraY + 200) cameraY = player.y - 200;
         else cameraY -= cameraSpeed;
 
@@ -749,10 +755,7 @@
         const highestPlatform = platforms[platforms.length - 1];
         if (highestPlatform.y > cameraY - 50) generatePlatform(highestPlatform.y - (80 + Math.random() * 40));
         
-        // Update platforms (for moving ones)
         platforms.forEach(p => p.update());
-        
-        // Filter out old platforms
         platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50);
 
         player.update();
@@ -783,6 +786,7 @@
         document.getElementById('hud').classList.add('hidden');
         document.getElementById('gameOverScreen').classList.remove('hidden');
         document.getElementById('finalScore').innerText = score;
+        document.getElementById('btn-leaderboard').classList.remove('hidden'); // Show Leaderboard on Game Over
         
         document.getElementById('submitForm').classList.remove('hidden');
         document.getElementById('submitSuccessMsg').classList.add('hidden');
@@ -795,23 +799,31 @@
     function resetGame() {
         document.getElementById('gameOverScreen').classList.add('hidden');
         document.getElementById('startScreen').classList.remove('hidden');
+        document.getElementById('btn-leaderboard').classList.remove('hidden'); // Show on Menu
         gameState = 'MENU';
     }
 
     function selectChar(type) { initGame(type); }
 
-    function switchTab(tab) {
+    function switchTab(tab, context) {
         currentTab = tab;
+        const contexts = context === 'modal' ? ['modal'] : ['gameover'];
         ['all', 'slime', 'gargoyle', 'ninja', 'boo'].forEach(t => {
-            const el = document.getElementById('tab-' + t);
-            if (t === tab) el.classList.add('active-tab');
-            else el.classList.remove('active-tab');
+            const elId = `tab-${context}-${t}`;
+            const el = document.getElementById(elId);
+            if(el) {
+                if (t === tab) el.classList.add('active-tab');
+                else el.classList.remove('active-tab');
+            }
         });
-        renderLeaderboard();
+        renderLeaderboard(context);
     }
 
-    function renderLeaderboard() {
-        const list = document.getElementById('leaderboardContent');
+    function renderLeaderboard(context) {
+        const listId = context === 'modal' ? 'leaderboardModalContent' : 'leaderboardContent';
+        const list = document.getElementById(listId);
+        if(!list) return;
+
         const data = leaderboardsData[currentTab] || [];
         
         if (data.length === 0) {
@@ -843,11 +855,16 @@
     }
 
     async function fetchLeaderboard() {
-        const list = document.getElementById('leaderboardContent');
-        list.innerHTML = '<div class="text-center text-gray-500 mt-4"><div class="loader mx-auto mb-2"></div>Loading...</div>';
+        ['leaderboardContent', 'leaderboardModalContent'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = '<div class="text-center text-gray-500 mt-4"><div class="loader mx-auto mb-2"></div>Loading...</div>';
+        });
 
         if(API_URL.includes("YOUR_GAS")) {
-            list.innerHTML = '<p class="text-red-400 text-center">API URL 未設定</p>';
+             ['leaderboardContent', 'leaderboardModalContent'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerHTML = '<p class="text-red-400 text-center">API URL 未設定</p>';
+            });
             return;
         }
 
@@ -857,11 +874,15 @@
             
             if (json.status === 'success') {
                 leaderboardsData = json.data;
-                renderLeaderboard();
+                renderLeaderboard('gameover');
+                renderLeaderboard('modal');
             }
         } catch (e) {
             console.error(e);
-            list.innerHTML = '<p class="text-red-500 text-center">連線失敗</p>';
+            ['leaderboardContent', 'leaderboardModalContent'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerHTML = '<p class="text-red-500 text-center">連線失敗</p>';
+            });
         }
     }
 
@@ -949,7 +970,9 @@
     actionContainer.addEventListener('touchend', handleActionTouch, {passive:false});
     actionContainer.addEventListener('touchcancel', handleActionTouch, {passive:false});
 
-    function toggleRules() {
+    function toggleRules(e) {
+        if(e) e.stopPropagation();
+        
         const modal = document.getElementById('rulesModal');
         if (modal.classList.contains('hidden')) {
             modal.classList.remove('hidden');
@@ -960,6 +983,19 @@
             if (gameState === 'PAUSED') gameState = previousState;
         }
     }
+
+    function toggleLeaderboard(e) {
+        if(e) e.stopPropagation();
+        const modal = document.getElementById('leaderboardModal');
+        if (modal.classList.contains('hidden')) {
+            modal.classList.remove('hidden');
+            // Fetch data if empty
+            if(leaderboardsData.all.length === 0) fetchLeaderboard();
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
     function toggleControlLayout() {
         const btn = document.getElementById('layoutToggleBtn');
         const touchContainer = document.getElementById('touchControls');
