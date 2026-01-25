@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - V5.2 層級修復版</title>
+    <title>史萊姆下樓梯 - V5.3 極簡旗艦版</title>
     <style>
         body { 
             margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
@@ -24,7 +24,7 @@
         .icon-btn { 
             background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; 
             width: 36px; height: 36px; line-height: 34px; text-align: center; 
-            cursor: pointer; font-size: 20px; transition: 0.2s; user-select: none; z-index: 10001; /* 確保按鈕本身也很好點 */
+            cursor: pointer; font-size: 20px; transition: 0.2s; user-select: none; z-index: 10001;
         }
         .icon-btn:hover { background: rgba(255, 255, 255, 0.4); }
         .icon-btn.muted { opacity: 0.6; text-decoration: line-through; color: #aaa; border-color: #aaa; }
@@ -59,11 +59,7 @@
             z-index: 25; 
             pointer-events: auto; display: none; 
         }
-        #joystick-hint {
-            position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
-            color: rgba(255,255,255,0.5); font-size: 14px; pointer-events: none;
-            text-shadow: 1px 1px 2px black; display: none; z-index: 26;
-        }
+        /* 移除提示文字樣式 */
         #joystick-visual {
             position: absolute; display: none; pointer-events: none; z-index: 999;
         }
@@ -79,7 +75,7 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.5); border: 2px solid white;
         }
 
-        /* Start Screen (z-index: 9999 - 次高) */
+        /* Start Screen (z-index: 9999) */
         #start-screen { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
@@ -122,12 +118,12 @@
         .setting-btn { padding: 8px; border: 1px solid #555; border-radius: 10px; cursor: pointer; background: rgba(0,0,0,0.5); transition: 0.2s; font-size: 13px; display: flex; align-items: center; justify-content: center; }
         .setting-btn.selected { background: #00d2d3; color: #000; border-color: #00d2d3; font-weight: bold; }
 
-        /* [修正重點] 說明視窗層級必須最高 (z-index: 10000) */
+        /* 說明視窗 (z-index: 10000) */
         #modal-overlay { 
             display: none; position: absolute; top: 0; left: 0; 
             width: 100%; height: 100%; 
             background: rgba(0, 0, 0, 0.85); 
-            z-index: 10000; /* 比 Start Screen 的 9999 還要高 */
+            z-index: 10000; 
             pointer-events: auto; justify-content: center; align-items: center; 
         }
         .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
@@ -159,7 +155,6 @@
     </div>
 
     <div id="joystick-touch-zone"></div>
-    <div id="joystick-hint">💡 觸碰螢幕任意處以使用搖桿</div>
     <div id="joystick-visual">
         <div class="joy-base"><div class="joy-stick" id="joy-stick-head"></div></div>
     </div>
@@ -252,7 +247,6 @@
     const joyTouchZone = document.getElementById('joystick-touch-zone');
     const joyVisual = document.getElementById('joystick-visual');
     const joyStickHead = document.getElementById('joy-stick-head');
-    const joyHint = document.getElementById('joystick-hint');
 
     // Game Variables
     let GAME_WIDTH = 600, GAME_HEIGHT = 800, gameState = 'MENU', score = 0, frames = 0, gameSpeed = 2, countdownVal = 3, leaderboardData = [], isMouseDown = false, isMuted = true, audioCtx = null;
@@ -276,15 +270,12 @@
         if (mode.startsWith('btn')) {
             controlsLayer.style.display = 'flex';
             joyTouchZone.style.display = 'none';
-            joyHint.style.display = 'none';
             controlsLayer.classList.remove('mode-btn-left', 'mode-btn-right');
             controlsLayer.classList.add('mode-' + mode);
         } else {
             controlsLayer.style.display = 'none';
             // 搖桿模式下，只有遊戲中才開啟觸控區 (避免擋住選單)
             joyTouchZone.style.display = (gameState === 'PLAYING' || gameState === 'COUNTDOWN') ? 'block' : 'none';
-            // 顯示提示文字 (如果有開啟)
-            joyHint.style.display = (gameState === 'PLAYING') ? 'block' : 'none';
         }
     }
 
@@ -301,7 +292,6 @@
             joyData.startX = x; joyData.startY = y; joyData.currentX = x; joyData.currentY = y;
             joyVisual.style.display = 'block'; joyVisual.style.left = (x - 60) + 'px'; joyVisual.style.top = (y - 60) + 'px';
             joyStickHead.style.transform = `translate(-50%, -50%)`;
-            joyHint.style.display = 'none'; // 操作時隱藏提示
         }
     }
 
@@ -319,7 +309,6 @@
     function endJoy() {
         joyData.active = false; joyData.touchId = null; joyVisual.style.display = 'none';
         keys.left = false; keys.right = false;
-        if(gameState === 'PLAYING') joyHint.style.display = 'block'; // 放開後顯示提示
     }
 
     joyTouchZone.addEventListener('touchstart', (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { startJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY, e.changedTouches[i].identifier, false); } });
@@ -454,10 +443,9 @@
         // 確保搖桿觸控區被開啟
         if (controlMode.startsWith('joy')) {
             joyTouchZone.style.display = 'block';
-            joyHint.style.display = 'none'; // 倒數時不顯示提示，開始後才顯示
         }
 
-        let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; if (controlMode.startsWith('joy')) joyHint.style.display = 'block'; } }, 1000);
+        let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; } }, 1000);
     }
 
     function resetGameData() {
@@ -477,7 +465,7 @@
 
     function gameOver() {
         playTone('gameover'); gameState = 'GAMEOVER'; isMouseDown = false; keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active');
-        endJoy(); joyTouchZone.style.display = 'none'; joyHint.style.display = 'none';
+        endJoy(); joyTouchZone.style.display = 'none';
         startTitle.innerText = "遊戲結束"; startDesc.innerHTML = `最終成績: ${score} 樓<br><span class="blink">點擊畫面重試</span>`; startDesc.style.display = 'block';
         if (checkHighscore(score)) { inputSection.style.display = 'block'; startDesc.style.display = 'none'; nameInput.value = ""; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; } else { inputSection.style.display = 'none'; }
         fetchLeaderboard(); startScreen.style.display = 'flex';
