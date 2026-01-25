@@ -54,6 +54,39 @@
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
         }
         
+        /* Joystick Styles */
+        .joystick-base {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: none; /* Let touches pass through to document/zone handlers */
+            display: none; /* Hidden by default */
+            z-index: 45;
+        }
+        .joystick-knob {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+        .joystick-zone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            z-index: 40;
+            touch-action: none;
+        }
+
         .tab-btn {
             padding: 4px 8px;
             font-size: 10px;
@@ -85,7 +118,6 @@
             position: relative;
         }
         
-        /* Fixed Modal Overlay - Highest Z-Index */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -101,15 +133,13 @@
     <div class="relative w-full h-full max-w-[480px] max-h-[640px] flex items-center justify-center z-10">
         <canvas id="gameCanvas" width="480" height="640" class="bg-gray-800 rounded-lg border-4 border-gray-600 w-full h-full object-contain"></canvas>
         
-        <!-- UI: Global Buttons (Rules & Leaderboard) - Z-index 50 (Above Screens, Below Modals) -->
-        <!-- Rules Button (Top Right) -->
+        <!-- UI: Global Buttons -->
         <button id="btn-rules" onclick="toggleRules(event)" class="absolute top-4 right-4 z-50 bg-gray-700/80 p-2 rounded-full hover:bg-gray-600 border border-gray-500 transition shadow-lg">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </button>
 
-        <!-- Leaderboard Button (Top Left) -->
         <button id="btn-leaderboard" onclick="toggleLeaderboard(event)" class="absolute top-4 left-4 z-50 bg-yellow-600/30 p-2 rounded-lg border border-yellow-500/50 hover:bg-yellow-600/50 transition flex items-center gap-2 group">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -122,66 +152,26 @@
             <h2 class="text-xl text-yellow-400 pixel-font mb-4 mt-10 md:mt-0">遊戲說明</h2>
             
             <div class="text-xs text-gray-300 mb-6 max-w-sm text-left mx-auto space-y-4 w-full">
-                
-                <!-- Character Stats Table -->
+                <!-- Character Stats -->
                 <div class="bg-gray-800 p-3 rounded border border-gray-600">
                     <h3 class="text-green-400 font-bold mb-2 border-b border-gray-600 pb-1">角色詳細數值 (STATS)</h3>
                     <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-green-400 font-bold">史萊姆 (Slime)</span>
-                            </div>
-                            <p class="text-gray-400 leading-tight">【平衡型】高度約 140px。貼牆時會有摩擦力導致<span class="text-green-200">緩慢滑落</span>(限連跳2次)。</p>
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-gray-400 font-bold">石像鬼 (Gargoyle)</span>
-                            </div>
-                            <p class="text-gray-400 leading-tight">【重裝型】高度約 150px。<span class="text-gray-200">落地即停</span>，免疫<span class="text-red-400">尖刺</span>緩速，<span class="text-yellow-500">易碎地板</span>碎得快。<br><strong class="text-pink-400">(踩彈簧只彈一次)</strong></p>
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-blue-400 font-bold">忍者蛙 (Ninja)</span>
-                            </div>
-                            <p class="text-gray-400 leading-tight">【速度型】一段約 120px。<span class="text-blue-200">二段跳</span>約 90px，可補足高度與距離。</p>
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-purple-400 font-bold">幽靈 (Boo)</span>
-                            </div>
-                            <p class="text-gray-400 leading-tight">【飄浮型】高度約 157px。滑行遠，免疫<span class="text-red-400">尖刺</span>，<span class="text-yellow-500">易碎地板</span>撐得久。</p>
-                        </div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-green-400 font-bold">史萊姆</span>: 平衡型，貼牆緩降。</p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-gray-400 font-bold">石像鬼</span>: 重裝型，落地即停，易碎地板碎得快。<br><strong class="text-pink-400">(踩彈簧只彈一次)</strong></p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-blue-400 font-bold">忍者蛙</span>: 速度型，可二段跳。</p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-purple-400 font-bold">幽靈</span>: 飄浮型，滑行遠。</p></div>
                     </div>
                 </div>
-
                 <!-- Platform Legend -->
                 <div class="bg-gray-800 p-3 rounded border border-gray-600">
                     <h3 class="text-blue-400 font-bold mb-2 border-b border-gray-600 pb-1">特殊樓板圖鑑</h3>
                     <div class="space-y-2">
-                        <div class="legend-item">
-                            <div class="legend-icon" style="background:#a5f3fc; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
-                            <span><strong class="text-cyan-300">冰板：</strong>非常滑。<br>石像鬼會滑一點點；幽靈會滑非常遠。</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-icon" style="background:#b45309; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
-                            <span><strong class="text-yellow-600">易碎：</strong>踩踏後變色，持續計時不暫停。<br>1秒閃爍，2秒碎裂消失。</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-icon" style="background:#ef4444; border-bottom: 2px solid #991b1b; display:flex; justify-content:center; align-items:end;"><div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:6px solid #7f1d1d;"></div></div>
-                            <span><strong class="text-red-400">尖刺：</strong>會受傷。<br>史萊姆/忍者蛙<span class="text-red-300">速度高度減半</span>。</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-icon" style="background:#6b7280; border-bottom: 2px solid rgba(0,0,0,0.2); text-align:center; line-height:12px; font-size:10px;">&gt;&gt;</div>
-                            <span><strong class="text-gray-400">輸送帶：</strong>強制將角色推向箭頭方向。</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-icon" style="background:#f472b6; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
-                            <span><strong class="text-pink-400">彈簧：</strong>踩上去會強制強力彈跳。</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-icon" style="background:#4ade80; border-bottom: 2px solid rgba(0,0,0,0.2);"></div>
-                            <span><strong class="text-green-400">移動：</strong>樓板會左右來回移動。</span>
-                        </div>
+                        <div class="legend-item"><div class="legend-icon" style="background:#a5f3fc; border-bottom: 2px solid rgba(0,0,0,0.2);"></div><span><strong class="text-cyan-300">冰板：</strong>非常滑。</span></div>
+                        <div class="legend-item"><div class="legend-icon" style="background:#b45309; border-bottom: 2px solid rgba(0,0,0,0.2);"></div><span><strong class="text-yellow-600">易碎：</strong>踩踏後消失。</span></div>
+                        <div class="legend-item"><div class="legend-icon" style="background:#ef4444; border-bottom: 2px solid #991b1b;"><div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:6px solid #7f1d1d;"></div></div><span><strong class="text-red-400">尖刺：</strong>受傷減速。</span></div>
+                        <div class="legend-item"><div class="legend-icon" style="background:#6b7280; text-align:center; font-size:10px;">&gt;&gt;</div><span><strong class="text-gray-400">輸送帶：</strong>強制移動。</span></div>
+                        <div class="legend-item"><div class="legend-icon" style="background:#f472b6;"></div><span><strong class="text-pink-400">彈簧：</strong>強制彈跳。</span></div>
+                        <div class="legend-item"><div class="legend-icon" style="background:#4ade80;"></div><span><strong class="text-green-400">移動：</strong>樓板移動。</span></div>
                     </div>
                 </div>
             </div>
@@ -209,12 +199,12 @@
             <button onclick="toggleLeaderboard(event)" class="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded text-white font-bold pixel-font shadow-lg border-b-4 border-gray-800">關閉 (CLOSE)</button>
         </div>
 
-        <!-- UI: Countdown (Fixed Z-100) -->
+        <!-- UI: Countdown -->
         <div id="countdownOverlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
             <span id="countdownText" class="text-8xl font-bold text-yellow-400 pixel-font drop-shadow-[0_4px_0_rgba(0,0,0,1)] animate-bounce">3</span>
         </div>
         
-        <!-- UI: Start Screen (Absolute Z-40) -->
+        <!-- UI: Start Screen -->
         <div id="startScreen" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center rounded-lg p-6 text-center z-40">
             <h1 class="text-3xl md:text-4xl text-green-400 mb-2 pixel-font tracking-tighter shadow-green-500/50 drop-shadow-lg">SLIME CLIMB</h1>
             <p class="text-gray-400 mb-4 text-sm">史萊姆上樓梯</p>
@@ -248,7 +238,7 @@
             </div>
         </div>
 
-        <!-- UI: Game Over (Absolute Z-40) -->
+        <!-- UI: Game Over -->
         <div id="gameOverScreen" class="hidden absolute inset-0 bg-black/95 flex flex-col items-center justify-center rounded-lg p-4 z-40">
             <h2 class="text-2xl text-red-500 mb-2 pixel-font">GAME OVER</h2>
             <div class="text-lg mb-4">Score: <span id="finalScore" class="text-yellow-400 font-bold">0</span></div>
@@ -286,14 +276,24 @@
             </button>
         </div>
 
-        <!-- HUD Z-20 -->
+        <!-- HUD -->
         <div id="hud" class="absolute top-2 left-2 text-white pixel-font text-xs z-20 hidden pointer-events-none drop-shadow-md">
             SCORE: <span id="scoreDisplay">0</span>
         </div>
     </div>
 
-    <!-- Touch Controls (Fixed Z-50) -->
+    <!-- Joystick Visuals -->
+    <div id="joystick-visual" class="joystick-base">
+        <div class="joystick-knob"></div>
+    </div>
+
+    <!-- Touch Controls -->
+    <!-- Added #joystick-zone for catching touches on the left side -->
+    <div id="joystick-zone" class="joystick-zone hidden"></div>
+
     <div id="touchControls" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-6 pb-2 flex justify-between items-end z-50 pointer-events-none select-none lg:max-w-none lg:left-0 lg:translate-x-0 lg:bottom-10 lg:px-20 lg:pb-4">
+        
+        <!-- Standard D-Pad -->
         <div id="dpadContainer" class="flex gap-4 pointer-events-auto">
             <div id="btnLeft" class="touch-btn w-24 h-24 active:bg-white/30" data-key="left">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -302,6 +302,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </div>
         </div>
+
+        <!-- Action Button (Jump) -->
         <div id="actionContainer" class="pointer-events-auto">
             <div id="btnJump" class="touch-btn w-28 h-28 bg-yellow-500/20 border-yellow-300/50 active:bg-yellow-500/40" data-key="space">
                 <span class="text-base">JUMP</span>
@@ -323,7 +325,7 @@
     let score = 0;
     let cameraY = 0;
     let cameraSpeed = 0.3; 
-    let controlsLayout = 'standard';
+    let controlsLayout = 'standard'; // 'standard', 'flipped', 'joystick'
     let currentPlayerType = 'slime'; 
     let leaderboardsData = { all: [] }; 
     let currentTab = 'all';
@@ -332,6 +334,17 @@
     let player;
     let platforms = [];
     
+    // Joystick Variables
+    let joystickData = {
+        active: false,
+        id: null,
+        baseX: 0,
+        baseY: 0,
+        knobX: 0,
+        knobY: 0,
+        maxRadius: 40 // Visual limit for knob
+    };
+
     // PHYSICS
     const CHARACTERS = {
         slime: { name: "史萊姆", color: "#4ade80", w: 24, h: 24, speed: 6, jumpForce: 13.5, gravity: 0.6, friction: 0.85, type: "slime" },
@@ -438,15 +451,11 @@
                     else if (p.type === 'conveyor_r') this.x += 2;
                     else if (p.type === 'moving') this.x += p.dx;
                     else if (p.type === 'spring') {
-                        // === MODIFIED SPRING LOGIC ===
                         if (this.type === 'gargoyle') {
                             if (!p.hasSprung) {
                                 this.vy = -15; 
                                 this.onGround = false;
-                                p.hasSprung = true; // Mark used
-                            } else {
-                                // Treat as normal ground (already set onGround=true)
-                                // Do nothing, just stay on ground
+                                p.hasSprung = true; 
                             }
                         } else {
                             this.vy = -22; 
@@ -491,32 +500,24 @@
             let drawW = this.w;
             let drawH = this.h;
             
-            // Squash and Stretch
             if (Math.abs(this.vy) > 2) { drawW *= 0.8; drawH *= 1.1; } 
             else if (Math.abs(this.vx) > 1) { drawW *= 1.1; drawH *= 0.9; }
 
-            // === NINJA TRIANGLE DRAW ===
             if (this.type === 'ninja') {
                 const centerX = this.x + this.w / 2;
                 const bottomY = this.y + this.h;
-                
                 ctx.beginPath();
-                // Top point
                 ctx.moveTo(centerX, bottomY - drawH);
-                // Bottom right
                 ctx.lineTo(centerX + drawW/2, bottomY);
-                // Bottom left
                 ctx.lineTo(centerX - drawW/2, bottomY);
                 ctx.closePath();
                 ctx.fill();
             } else {
-                // Normal Rect Draw
                 ctx.fillRect(this.x + (this.w - drawW)/2, this.y + (this.h - drawH), drawW, drawH);
             }
 
             ctx.fillStyle = "white";
             let eyeOffset = (this.vx > 0) ? 4 : (this.vx < 0) ? -4 : 0;
-            // Eyes position adjustment for triangle
             let eyeY = (this.type === 'ninja') ? this.y + (this.h - drawH) + drawH/2 : this.y + 6;
             
             ctx.fillRect(this.x + this.w/2 + eyeOffset - 6, eyeY, 4, 4);
@@ -533,7 +534,7 @@
             this.type = type;
             this.broken = false;
             this.triggered = false; 
-            this.hasSprung = false; // New: For Gargoyle spring logic
+            this.hasSprung = false; 
             this.breakTimer = 0;
             this.dx = 2; 
             this.moveRange = 100;
@@ -615,12 +616,11 @@
                 }
             }
             else if (this.type === 'spring') {
-                // If Gargoyle used it, make it look 'flat' or 'used'
                 if (this.hasSprung) {
-                    ctx.fillStyle = '#be185d'; // Darker pink
+                    ctx.fillStyle = '#be185d'; 
                     ctx.fillRect(0, 0, this.w, this.h);
                     ctx.fillStyle = '#831843';
-                    ctx.fillRect(0, 4, this.w, 4); // Compressed coil
+                    ctx.fillRect(0, 4, this.w, 4); 
                 } else {
                     ctx.fillStyle = '#f472b6';
                     ctx.fillRect(0, 0, this.w, this.h);
@@ -671,7 +671,11 @@
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
         document.getElementById('touchControls').classList.remove('pointer-events-none');
-        document.getElementById('btn-leaderboard').classList.add('hidden'); // Hide Leaderboard in Game
+        document.getElementById('btn-leaderboard').classList.add('hidden'); 
+        
+        // Show/Hide Controls based on Layout
+        updateControlsUI();
+        
         startCountdown();
     }
 
@@ -700,7 +704,6 @@
 
     function generatePlatform(yPos) {
         const spawnCount = (score > 200 && Math.random() < 0.3) ? 2 : 1;
-        
         const spawnOne = (minX, maxX) => {
             const w = 80 + Math.random() * 60;
             if (maxX < minX + w) maxX = minX + w;
@@ -786,7 +789,7 @@
         document.getElementById('hud').classList.add('hidden');
         document.getElementById('gameOverScreen').classList.remove('hidden');
         document.getElementById('finalScore').innerText = score;
-        document.getElementById('btn-leaderboard').classList.remove('hidden'); // Show Leaderboard on Game Over
+        document.getElementById('btn-leaderboard').classList.remove('hidden');
         
         document.getElementById('submitForm').classList.remove('hidden');
         document.getElementById('submitSuccessMsg').classList.add('hidden');
@@ -799,7 +802,7 @@
     function resetGame() {
         document.getElementById('gameOverScreen').classList.add('hidden');
         document.getElementById('startScreen').classList.remove('hidden');
-        document.getElementById('btn-leaderboard').classList.remove('hidden'); // Show on Menu
+        document.getElementById('btn-leaderboard').classList.remove('hidden'); 
         gameState = 'MENU';
     }
 
@@ -807,7 +810,6 @@
 
     function switchTab(tab, context) {
         currentTab = tab;
-        const contexts = context === 'modal' ? ['modal'] : ['gameover'];
         ['all', 'slime', 'gargoyle', 'ninja', 'boo'].forEach(t => {
             const elId = `tab-${context}-${t}`;
             const el = document.getElementById(elId);
@@ -914,6 +916,7 @@
         }
     }
 
+    // Keyboard Controls
     window.addEventListener('keydown', e => {
         if (e.code === 'ArrowRight') { keys.right = true; setButtonState('btnRight', true); }
         if (e.code === 'ArrowLeft') { keys.left = true; setButtonState('btnLeft', true); }
@@ -925,12 +928,90 @@
         if (e.code === 'Space') { keys.space = false; keys.spaceHeld = false; setButtonState('btnJump', false); }
     });
 
+    // Touch Controls (Original Buttons)
     const dpadContainer = document.getElementById('dpadContainer');
     const actionContainer = document.getElementById('actionContainer');
     function setButtonState(id, active) { 
         const el = document.getElementById(id); 
         if(el) active ? el.classList.add('active') : el.classList.remove('active'); 
     }
+    
+    // Joystick Logic
+    const joystickZone = document.getElementById('joystick-zone');
+    const joystickVisual = document.getElementById('joystick-visual');
+    const joystickKnob = joystickVisual.querySelector('.joystick-knob');
+
+    joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        joystickData.active = true;
+        joystickData.id = touch.identifier;
+        joystickData.baseX = touch.clientX;
+        joystickData.baseY = touch.clientY;
+        joystickData.knobX = touch.clientX;
+        joystickData.knobY = touch.clientY;
+
+        // Show Visuals
+        joystickVisual.style.display = 'block';
+        joystickVisual.style.left = (joystickData.baseX - 50) + 'px'; // Center base (100px wide)
+        joystickVisual.style.top = (joystickData.baseY - 50) + 'px';
+        joystickKnob.style.transform = `translate(-50%, -50%)`;
+    }, {passive: false});
+
+    joystickZone.addEventListener('touchmove', (e) => {
+        if(!joystickData.active) return;
+        e.preventDefault();
+        
+        let touch = null;
+        for(let i=0; i<e.touches.length; i++) {
+            if(e.touches[i].identifier === joystickData.id) {
+                touch = e.touches[i];
+                break;
+            }
+        }
+        if(!touch) return;
+
+        const dx = touch.clientX - joystickData.baseX;
+        const dy = touch.clientY - joystickData.baseY;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        
+        // Visual Limit
+        let visualDistance = Math.min(distance, joystickData.maxRadius);
+        const angle = Math.atan2(dy, dx);
+        const visualX = Math.cos(angle) * visualDistance;
+        const visualY = Math.sin(angle) * visualDistance;
+        
+        joystickKnob.style.transform = `translate(calc(-50% + ${visualX}px), calc(-50% + ${visualY}px))`;
+
+        // Input Logic (Threshold)
+        const threshold = 10;
+        if (dx < -threshold) { keys.left = true; keys.right = false; }
+        else if (dx > threshold) { keys.right = true; keys.left = false; }
+        else { keys.left = false; keys.right = false; }
+
+    }, {passive: false});
+
+    const endJoystick = (e) => {
+        if(!joystickData.active) return;
+        // Check if our touch ended
+        let myTouchEnded = false;
+        for(let i=0; i<e.changedTouches.length; i++) {
+            if(e.changedTouches[i].identifier === joystickData.id) {
+                myTouchEnded = true;
+                break;
+            }
+        }
+        if(myTouchEnded) {
+            joystickData.active = false;
+            joystickVisual.style.display = 'none';
+            keys.left = false;
+            keys.right = false;
+        }
+    };
+    joystickZone.addEventListener('touchend', endJoystick);
+    joystickZone.addEventListener('touchcancel', endJoystick);
+
+
     const handleDpadTouch = (e) => {
         if (!e.cancelable) return;
         e.preventDefault();
@@ -972,7 +1053,6 @@
 
     function toggleRules(e) {
         if(e) e.stopPropagation();
-        
         const modal = document.getElementById('rulesModal');
         if (modal.classList.contains('hidden')) {
             modal.classList.remove('hidden');
@@ -989,7 +1069,6 @@
         const modal = document.getElementById('leaderboardModal');
         if (modal.classList.contains('hidden')) {
             modal.classList.remove('hidden');
-            // Fetch data if empty
             if(leaderboardsData.all.length === 0) fetchLeaderboard();
         } else {
             modal.classList.add('hidden');
@@ -998,17 +1077,38 @@
 
     function toggleControlLayout() {
         const btn = document.getElementById('layoutToggleBtn');
-        const touchContainer = document.getElementById('touchControls');
+        
         if (controlsLayout === 'standard') {
             controlsLayout = 'flipped';
-            btn.innerText = "反轉 (右移/左跳)";
-            touchContainer.style.flexDirection = 'row-reverse';
+            btn.innerText = "按鍵：反轉 (右移/左跳)";
+        } else if (controlsLayout === 'flipped') {
+            controlsLayout = 'joystick';
+            btn.innerText = "模式：搖桿 (類似傳說)";
         } else {
             controlsLayout = 'standard';
-            btn.innerText = "標準 (左移/右跳)";
-            touchContainer.style.flexDirection = 'row';
+            btn.innerText = "按鍵：標準 (左移/右跳)";
+        }
+        updateControlsUI();
+    }
+
+    function updateControlsUI() {
+        const touchContainer = document.getElementById('touchControls');
+        const dpad = document.getElementById('dpadContainer');
+        const joyZone = document.getElementById('joystick-zone');
+
+        // Reset
+        touchContainer.style.flexDirection = 'row';
+        dpad.classList.remove('hidden');
+        joyZone.classList.add('hidden');
+
+        if (controlsLayout === 'flipped') {
+            touchContainer.style.flexDirection = 'row-reverse';
+        } else if (controlsLayout === 'joystick') {
+            dpad.classList.add('hidden');
+            joyZone.classList.remove('hidden');
         }
     }
+
     function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 </script>
 </body>
