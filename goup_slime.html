@@ -60,7 +60,7 @@
         
         /* Joystick Fixed Styles */
         .joystick-container {
-            width: 100px; /* Reduced slightly for better fit */
+            width: 100px; 
             height: 100px;
             position: relative;
             background: rgba(255, 255, 255, 0.1);
@@ -80,6 +80,7 @@
             transform: translate(-50%, -50%); /* Default centered */
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
             pointer-events: none; /* Events captured by container */
+            transition: transform 0.05s ease-out; /* Slight smoothing for visuals only */
         }
 
         .tab-btn {
@@ -942,38 +943,7 @@
     const joystickBase = document.getElementById('joystick-base');
     const joystickKnob = joystickBase.querySelector('.joystick-knob');
 
-    function handleJoystickStart(e) {
-        // Prevent default touch actions (scrolling)
-        if(e.cancelable) e.preventDefault();
-        
-        if(joystickData.active) return; // Only one joystick at a time
-
-        const touch = e.changedTouches[0];
-        joystickData.active = true;
-        joystickData.id = touch.identifier;
-        
-        // Calculate center based on actual DOM position
-        const rect = joystickBase.getBoundingClientRect();
-        joystickData.baseX = rect.left + rect.width / 2;
-        joystickData.baseY = rect.top + rect.height / 2;
-        
-        // Reset knob
-        joystickKnob.style.transform = `translate(-50%, -50%)`;
-    }
-
-    function handleJoystickMove(e) {
-        if(!joystickData.active) return;
-        if(e.cancelable) e.preventDefault();
-        
-        let touch = null;
-        for(let i=0; i<e.changedTouches.length; i++) {
-            if(e.changedTouches[i].identifier === joystickData.id) {
-                touch = e.changedTouches[i];
-                break;
-            }
-        }
-        if(!touch) return;
-
+    function updateJoystickState(touch) {
         const dx = touch.clientX - joystickData.baseX;
         const dy = touch.clientY - joystickData.baseY;
         const distance = Math.sqrt(dx*dx + dy*dy);
@@ -991,6 +961,38 @@
         if (dx < -threshold) { keys.left = true; keys.right = false; }
         else if (dx > threshold) { keys.right = true; keys.left = false; }
         else { keys.left = false; keys.right = false; }
+    }
+
+    function handleJoystickStart(e) {
+        if(e.cancelable) e.preventDefault();
+        
+        if(joystickData.active) return; 
+
+        const touch = e.changedTouches[0];
+        joystickData.active = true;
+        joystickData.id = touch.identifier;
+        
+        const rect = joystickBase.getBoundingClientRect();
+        joystickData.baseX = rect.left + rect.width / 2;
+        joystickData.baseY = rect.top + rect.height / 2;
+        
+        updateJoystickState(touch); // Immediate update
+    }
+
+    function handleJoystickMove(e) {
+        if(!joystickData.active) return;
+        if(e.cancelable) e.preventDefault();
+        
+        let touch = null;
+        for(let i=0; i<e.changedTouches.length; i++) {
+            if(e.changedTouches[i].identifier === joystickData.id) {
+                touch = e.changedTouches[i];
+                break;
+            }
+        }
+        if(touch) {
+            updateJoystickState(touch);
+        }
     }
 
     function handleJoystickEnd(e) {
