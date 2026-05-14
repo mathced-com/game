@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1A2B 智慧猜數字</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .number-slot.active { border-color: #3b82f6; ring: 2px; ring-color: #93c5fd; }
+        .keypad-btn:disabled { background-color: #f1f5f9; color: #cbd5e1; cursor: not-allowed; text-decoration: line-through; }
+        .modal-overlay { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        .history-scroll { max-height: 400px; overflow-y: auto; }
+        /* 隱藏捲動條但保留功能 (可選) */
+        .history-scroll::-webkit-scrollbar { width: 4px; }
+        .history-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-800">
+
+    <div class="max-w-6xl mx-auto px-4 py-6">
+        <!-- 導覽列：含標題與右上角功能按鈕 -->
+        <header class="flex justify-between items-center mb-8 border-b pb-4">
+            <div>
+                <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">猜數字 <span class="text-blue-600">Master</span></h1>
+            </div>
+            <div class="flex gap-3">
+                <!-- 玩法說明按鈕 -->
+                <button onclick="toggleModal('rulesModal')" class="p-2 bg-white border border-slate-200 rounded-full hover:bg-slate-100 transition-all shadow-sm" title="遊戲規則">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                </button>
+                <!-- 排行榜按鈕 -->
+                <button onclick="openLeaderboard()" class="p-2 bg-white border border-slate-200 rounded-full hover:bg-slate-100 transition-all shadow-sm" title="查看排行">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主要佈局：雙欄 -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- 左側：遊戲輸入區 (佔 7 欄) -->
+            <section class="lg:col-span-7">
+                <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 mb-6">
+                    <!-- 狀態資訊 -->
+                    <div class="flex justify-between items-center mb-8">
+                        <div class="flex gap-4">
+                            <div class="bg-blue-50 px-4 py-2 rounded-2xl text-center">
+                                <p class="text-[10px] text-blue-400 font-bold uppercase">猜測次數</p>
+                                <p id="attemptsCount" class="text-2xl font-black text-blue-600 leading-none">0</p>
+                            </div>
+                            <div class="bg-slate-50 px-4 py-2 rounded-2xl text-center">
+                                <p class="text-[10px] text-slate-400 font-bold uppercase">計時器</p>
+                                <p id="gameTimer" class="text-2xl font-black text-slate-700 leading-none">00:00</p>
+                            </div>
+                        </div>
+                        <button onclick="resetGame()" class="text-slate-400 hover:text-blue-600 transition-colors p-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- 數字槽位 -->
+                    <div class="flex justify-center gap-3 mb-10">
+                        <div onclick="openKeypad(0)" id="slot-0" class="number-slot w-16 h-20 md:w-20 md:h-24 border-2 border-slate-200 rounded-2xl flex items-center justify-center text-4xl font-black text-slate-700 cursor-pointer hover:bg-slate-50 transition-all">?</div>
+                        <div onclick="openKeypad(1)" id="slot-1" class="number-slot w-16 h-20 md:w-20 md:h-24 border-2 border-slate-200 rounded-2xl flex items-center justify-center text-4xl font-black text-slate-700 cursor-pointer hover:bg-slate-50 transition-all">?</div>
+                        <div onclick="openKeypad(2)" id="slot-2" class="number-slot w-16 h-20 md:w-20 md:h-24 border-2 border-slate-200 rounded-2xl flex items-center justify-center text-4xl font-black text-slate-700 cursor-pointer hover:bg-slate-50 transition-all">?</div>
+                        <div onclick="openKeypad(3)" id="slot-3" class="number-slot w-16 h-20 md:w-20 md:h-24 border-2 border-slate-200 rounded-2xl flex items-center justify-center text-4xl font-black text-slate-700 cursor-pointer hover:bg-slate-50 transition-all">?</div>
+                    </div>
+
+                    <!-- 虛擬鍵盤 (動態出現) -->
+                    <div id="keypadContainer" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <div class="grid grid-cols-5 gap-3 max-w-sm mx-auto mb-8">
+                            <!-- 0-9 按鈕由 JS 監控狀態 -->
+                            <button onclick="selectNumber(0)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">0</button>
+                            <button onclick="selectNumber(1)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">1</button>
+                            <button onclick="selectNumber(2)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">2</button>
+                            <button onclick="selectNumber(3)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">3</button>
+                            <button onclick="selectNumber(4)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">4</button>
+                            <button onclick="selectNumber(5)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">5</button>
+                            <button onclick="selectNumber(6)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">6</button>
+                            <button onclick="selectNumber(7)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">7</button>
+                            <button onclick="selectNumber(8)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">8</button>
+                            <button onclick="selectNumber(9)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">9</button>
+                        </div>
+                    </div>
+
+                    <button id="submitGuessBtn" onclick="submitGuess()" disabled class="w-full py-5 bg-slate-900 text-white rounded-2xl font-bold text-lg shadow-xl shadow-slate-200 disabled:bg-slate-200 disabled:shadow-none transition-all">驗證猜測結果</button>
+                </div>
+            </section>
+
+            <!-- 右側：猜測紀錄區 (佔 5 欄) -->
+            <section class="lg:col-span-5">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-slate-900 font-bold text-lg mb-4 flex items-center">
+                        <svg class="mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                        猜測歷史紀錄
+                    </h3>
+                    <div id="historyList" class="history-scroll space-y-3 pr-2">
+                        <div class="text-center py-12 text-slate-300 italic">尚未開始猜測</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 彈窗集：遊戲玩法 (Rules Modal) -->
+    <div id="rulesModal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in duration-200">
+            <h2 class="text-2xl font-bold text-slate-900 mb-4">猜數字遊戲規則 (1A2B)</h2>
+            <div class="space-y-4 text-slate-600 leading-relaxed">
+                <p>1. 系統會隨機產生 4 個不重複的數字 (0-9)。</p>
+                <p>2. 你需要猜出這組數字。每次猜測後，系統會給予提示：</p>
+                <ul class="list-disc ml-6 space-y-1">
+                    <li><strong class="text-blue-600">A</strong>：數字正確且位置也正確。</li>
+                    <li><strong class="text-amber-600">B</strong>：數字正確但位置不對。</li>
+                </ul>
+                <p class="bg-blue-50 p-3 rounded-xl text-sm">例：正確是 1234，如果你猜 1543，結果為 1A2B（1 是 A，4 和 3 是 B）。</p>
+            </div>
+            <button onclick="toggleModal('rulesModal')" class="mt-8 w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200">了解，開始挑戰</button>
+        </div>
+    </div>
+
+    <!-- 彈窗集：排行榜 (Leaderboard Modal) -->
+    <div id="leaderboardModal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-900">Top 10 排行榜</h2>
+                <button onclick="toggleModal('leaderboardModal')" class="text-slate-400 hover:text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-slate-400 border-b border-slate-100">
+                            <th class="py-3 text-left">#</th>
+                            <th class="py-3 text-left">玩家</th>
+                            <th class="py-3 text-center">次數</th>
+                            <th class="py-3 text-right">時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <!-- 資料由 JS 填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 勝利彈窗 (Win Modal) -->
+    <div id="winModal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
+            <div class="text-6xl mb-4">🏆</div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">太厲害了！</h2>
+            <p id="winMessage" class="text-slate-500 mb-6"></p>
+            <div class="space-y-4">
+                <input type="text" id="playerName" maxlength="10" placeholder="輸入你的大名" class="w-full px-4 py-4 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-100 text-center font-bold text-lg">
+                <button onclick="uploadScore()" id="uploadBtn" class="w-full py-4 bg-green-600 text-white rounded-2xl font-bold shadow-lg shadow-green-100 hover:bg-green-700 transition-colors">提交成績</button>
+                <button onclick="closeWinModal()" class="w-full py-2 text-slate-400 hover:text-slate-600 text-sm">不記錄，重新開始</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 配置 ---
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbynCQVtCn7fEL9b2IMsAEchBdqE8KiMyU0R1FaeI9WFefsVmzivLuXjCvRWBd55vUXV/exec"; // 請在此填入部署後的 GAS Web App 網址
+        let targetCode = [];
+        let currentGuess = [null, null, null, null];
+        let activeSlot = -1;
+        let attempts = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let isGameOver = false;
+
+        // --- 初始化 ---
+        function initGame() {
+            const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+            targetCode = [];
+            for (let i = 0; i < 4; i++) {
+                const idx = Math.floor(Math.random() * nums.length);
+                targetCode.push(nums.splice(idx, 1)[0]);
+            }
+            console.log("Answer:", targetCode.join('')); // Debug
+
+            attempts = 0;
+            currentGuess = [null, null, null, null];
+            isGameOver = false;
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('attemptsCount').innerText = attempts;
+            for (let i = 0; i < 4; i++) {
+                const slot = document.getElementById(`slot-${i}`);
+                slot.innerText = currentGuess[i] === null ? '?' : currentGuess[i];
+                slot.classList.toggle('active', activeSlot === i);
+                slot.classList.toggle('border-blue-500', activeSlot === i || currentGuess[i] !== null);
+                slot.classList.toggle('bg-blue-50', activeSlot === i);
+            }
+
+            const btns = document.querySelectorAll('.keypad-btn');
+            btns.forEach((btn, index) => {
+                const isUsedElsewhere = currentGuess.some((num, idx) => num === index && idx !== activeSlot);
+                btn.disabled = isUsedElsewhere;
+            });
+
+            document.getElementById('submitGuessBtn').disabled = currentGuess.includes(null) || isGameOver;
+        }
+
+        // --- 互動 ---
+        function openKeypad(index) {
+            if (isGameOver) return;
+            activeSlot = index;
+            document.getElementById('keypadContainer').classList.remove('hidden');
+            if (startTime === null) startTimer();
+            updateUI();
+        }
+
+        function selectNumber(num) {
+            currentGuess[activeSlot] = num;
+            const nextEmpty = currentGuess.indexOf(null);
+            if (nextEmpty !== -1) {
+                activeSlot = nextEmpty;
+            } else {
+                activeSlot = -1;
+                document.getElementById('keypadContainer').classList.add('hidden');
+            }
+            updateUI();
+        }
+
+        function submitGuess() {
+            attempts++;
+            let a = 0, b = 0;
+            currentGuess.forEach((num, i) => {
+                if (num === targetCode[i]) a++;
+                else if (targetCode.includes(num)) b++;
+            });
+
+            // 更新歷史紀錄 (新增至頂端)
+            const historyList = document.getElementById('historyList');
+            if (attempts === 1) historyList.innerHTML = '';
+            
+            const div = document.createElement('div');
+            div.className = "flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 animate-in slide-in-from-right-4 duration-300";
+            div.innerHTML = `
+                <div class="flex items-center">
+                    <span class="text-xs font-bold text-slate-300 mr-3">#${attempts.toString().padStart(2, '0')}</span>
+                    <span class="font-mono text-xl font-black text-slate-700 tracking-widest">${currentGuess.join('')}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-sm">${a}A</span>
+                    <span class="bg-amber-500 text-white px-3 py-1 rounded-lg font-bold text-sm">${b}B</span>
+                </div>
+            `;
+            historyList.prepend(div);
+
+            if (a === 4) {
+                winGame();
+            } else {
+                currentGuess = [null, null, null, null];
+                activeSlot = -1;
+                updateUI();
+            }
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const s = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('gameTimer').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function winGame() {
+            clearInterval(timerInterval);
+            isGameOver = true;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('winMessage').innerText = `猜了 ${attempts} 次，耗時 ${elapsed} 秒！`;
+            toggleModal('winModal');
+        }
+
+        function resetGame() {
+            clearInterval(timerInterval);
+            startTime = null;
+            document.getElementById('gameTimer').innerText = "00:00";
+            document.getElementById('historyList').innerHTML = '<div class="text-center py-12 text-slate-300 italic">尚未開始猜測</div>';
+            document.getElementById('keypadContainer').classList.add('hidden');
+            initGame();
+        }
+
+        // --- 彈窗管理 ---
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+        }
+
+        function openLeaderboard() {
+            toggleModal('leaderboardModal');
+            fetchLeaderboard();
+        }
+
+        function closeWinModal() {
+            toggleModal('winModal');
+            resetGame();
+        }
+
+        // --- API 溝通 ---
+        async function fetchLeaderboard() {
+            const body = document.getElementById('leaderboardBody');
+            body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400 italic">正在獲取排行...</td></tr>';
+            
+            if (!GAS_URL) {
+                body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-red-400 italic">尚未設定後端網址</td></tr>';
+                return;
+            }
+
+            try {
+                const resp = await fetch(GAS_URL);
+                const data = await resp.json();
+                body.innerHTML = data.map((row, idx) => `
+                    <tr class="border-b border-slate-50 last:border-0">
+                        <td class="py-4 font-mono font-bold ${idx < 3 ? 'text-amber-500' : 'text-slate-300'}">${idx + 1}</td>
+                        <td class="py-4 font-bold text-slate-700">${row.name}</td>
+                        <td class="py-4 text-center text-blue-600 font-bold">${row.attempts}</td>
+                        <td class="py-4 text-right text-slate-400">${row.time}s</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-red-400 italic">無法連線至伺服器</td></tr>';
+            }
+        }
+
+        async function uploadScore() {
+            const name = document.getElementById('playerName').value.trim();
+            if (!name) return alert("請輸入暱稱！");
+            if (!GAS_URL) return alert("後端未配置");
+
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            btn.innerText = "上傳中...";
+
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ name, attempts, time: elapsed })
+                });
+                setTimeout(() => {
+                    toggleModal('winModal');
+                    resetGame();
+                    openLeaderboard();
+                }, 1000);
+            } catch (e) {
+                alert("提交失敗");
+                btn.disabled = false;
+            }
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
