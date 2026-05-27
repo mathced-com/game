@@ -416,26 +416,28 @@
     // --- 【修改重點】自動診斷並強制去快取的 fetchLeaderboard ---
   // --- 修復後的排行榜讀取函式 ---
 function fetchLeaderboard() {
+    // 1. 如果是本地 file:// 開啟，跳過讀取 (因為瀏覽器安全限制)
     if (window.location.protocol === 'file:') { 
-        leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b></p>`; 
+        leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43;'>⚠️ 建議使用 Live Server 開啟</p>`; 
         return; 
     }
     
+    // 2. 使用 cache busting 避免讀到舊資料
     const fetchUrl = API_URL + "?t=" + new Date().getTime();
     
-    fetch(fetchUrl, { method: 'GET', mode: 'cors', credentials: 'omit' })
+    fetch(fetchUrl, { method: 'GET', mode: 'cors' })
     .then(response => {
-        if (!response.ok) throw new Error("Server Error");
-        return response.json(); // 直接嘗試轉為 JSON
+        if (!response.ok) throw new Error("HTTP error " + response.status);
+        return response.json(); // 直接解析 JSON
     })
     .then(data => {
-        // 如果成功解析，直接渲染
+        // 既然已經確認收到了陣列資料，直接交給 renderLeaderboard
         leaderboardData = data; 
         renderLeaderboard(data); 
     })
     .catch(error => { 
         console.error('Leaderboard Fetch Error:', error); 
-        leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取失敗，請檢查網路或 API 權限</p>`; 
+        leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取失敗</p>`; 
     });
 }
 
