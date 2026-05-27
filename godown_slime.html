@@ -3,99 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - V5.4 按鈕修復版</title>
+    <title>史萊姆下樓梯 - V5.5 終極突破版</title>
     <style>
-        body { 
-            margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
-            height: 100dvh; 
-        }
+        body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100dvh; }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
-        
-        /* [修正重點] UI 層級提高到 50，確保浮在搖桿層(25)之上 */
-        #ui-layer { 
-            position: absolute; top: 0; left: 50%; transform: translateX(-50%); 
-            width: 100%; max-width: 600px; height: 100%; 
-            pointer-events: none; /* 讓空白色區域可穿透，不擋搖桿 */
-            z-index: 50; 
-        }
-        .hud-top { 
-            display: flex; justify-content: space-between; align-items: center; 
-            padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px;
-            color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; 
-        }
+        #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; z-index: 50; }
+        .hud-top { display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; }
         .hearts { color: #ff4757; font-size: 24px; letter-spacing: 2px; }
-        
         .hud-buttons { display: flex; gap: 10px; pointer-events: auto; }
-        /* 按鈕本身設為 auto，確保可以被點擊 */
-        .icon-btn { 
-            background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; 
-            width: 36px; height: 36px; line-height: 34px; text-align: center; 
-            cursor: pointer; font-size: 20px; transition: 0.2s; 
-            user-select: none; pointer-events: auto; 
-        }
+        .icon-btn { background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; width: 36px; height: 36px; line-height: 34px; text-align: center; cursor: pointer; font-size: 20px; transition: 0.2s; user-select: none; pointer-events: auto; }
         .icon-btn:hover { background: rgba(255, 255, 255, 0.4); }
         .icon-btn.muted { opacity: 0.6; text-decoration: line-through; color: #aaa; border-color: #aaa; }
-
-        /* --- 1. 固定按鍵層 (z-index: 30) --- */
-        #controls-layer {
-            position: absolute; pointer-events: auto; display: none; 
-            align-items: center; z-index: 30; box-sizing: border-box; user-select: none;
-        }
-        .control-btn { 
-            width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; 
-            margin: 0 10px; display: flex; justify-content: center; align-items: center; 
-            color: white; font-size: 40px; font-weight: bold; transition: all 0.1s; 
-            backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; 
-        }
+        #controls-layer { position: absolute; pointer-events: auto; display: none; align-items: center; z-index: 30; box-sizing: border-box; user-select: none; }
+        .control-btn { width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; margin: 0 10px; display: flex; justify-content: center; align-items: center; color: white; font-size: 40px; font-weight: bold; transition: all 0.1s; backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; }
         .control-btn.active { background-color: rgba(255, 255, 255, 0.8); color: #000; transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 210, 211, 0.8); border-color: #00d2d3; }
-
-        @media (max-width: 820px) {
-            #controls-layer { bottom: 30px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; padding: 0 20px; height: 100px; }
-            #controls-layer.mode-btn-left { justify-content: flex-start; }
-            #controls-layer.mode-btn-right { justify-content: flex-end; }
-        }
-        @media (min-width: 821px) {
-            #controls-layer { position: fixed; bottom: 40px; width: 250px; height: 120px; transform: none; }
-            #controls-layer.mode-btn-left { left: 40px; justify-content: flex-start; }
-            #controls-layer.mode-btn-right { right: 40px; justify-content: flex-end; }
-        }
-
-        /* --- 2. 動態搖桿層 (z-index: 25) --- */
-        #joystick-touch-zone {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 25; 
-            pointer-events: auto; display: none; 
-        }
-        #joystick-visual {
-            position: absolute; display: none; pointer-events: none; z-index: 999;
-        }
-        .joy-base {
-            width: 120px; height: 120px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
-            position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.3); backdrop-filter: blur(2px);
-        }
-        .joy-stick {
-            width: 50px; height: 50px; border-radius: 50%;
-            background: linear-gradient(135deg, #00d2d3, #0abde3);
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            box-shadow: 0 0 10px rgba(0,0,0,0.5); border: 2px solid white;
-        }
-
-        /* Start Screen (z-index: 9999) */
-        #start-screen { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
-            padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; 
-            cursor: pointer; pointer-events: auto; 
-            z-index: 9999; 
-            width: 85%; max-width: 380px; max-height: 95vh; 
-            display: flex; flex-direction: column; align-items: center; overflow-y: auto;
-        }
+        @media (max-width: 820px) { #controls-layer { bottom: 30px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; padding: 0 20px; height: 100px; } #controls-layer.mode-btn-left { justify-content: flex-start; } #controls-layer.mode-btn-right { justify-content: flex-end; } }
+        @media (min-width: 821px) { #controls-layer { position: fixed; bottom: 40px; width: 250px; height: 120px; transform: none; } #controls-layer.mode-btn-left { left: 40px; justify-content: flex-start; } #controls-layer.mode-btn-right { right: 40px; justify-content: flex-end; } }
+        #joystick-touch-zone { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 25; pointer-events: auto; display: none; }
+        #joystick-visual { position: absolute; display: none; pointer-events: none; z-index: 999; }
+        .joy-base { width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.3); backdrop-filter: blur(2px); }
+        .joy-stick { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #00d2d3, #0abde3); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0,0,0,0.5); border: 2px solid white; }
+        #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; background: rgba(0, 0, 0, 0.95); padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; cursor: pointer; pointer-events: auto; z-index: 9999; width: 85%; max-width: 380px; max-height: 95vh; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
         #start-title { margin: 10px 0; font-size: 28px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.5); }
         #start-desc { margin: 10px 0; font-size: 18px; line-height: 1.5; pointer-events: none; }
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
-        
         #char-select-section { margin-bottom: 15px; width: 100%; }
         #char-select-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
         .char-list { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
@@ -104,34 +36,23 @@
         .char-name { font-size: 12px; color: #aaa; }
         .char-option.selected .char-icon-box { border-color: yellow; background: rgba(255,255,0,0.2); transform: scale(1.1); }
         .char-option.selected .char-name { color: yellow; font-weight: bold; }
-
         #leaderboard-section { margin-top: 10px; background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; overflow-y: auto; max-height: 150px; }
         .lb-header { font-size: 14px; color: #aaa; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .lb-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 2px; }
         .lb-rank { color: #f1c40f; width: 25px; text-align: left; }
         .lb-name { flex-grow: 1; text-align: left; padding-left: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
-        
         #input-section { display: none; margin-bottom: 15px; width: 100%; }
         #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; touch-action: manipulation !important; user-select: text !important; -webkit-user-select: text !important; z-index: 1000; position: relative; }
         #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; touch-action: manipulation;}
         #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
         #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
-        
         #settings-section { margin-bottom: 15px; width: 100%; }
         #settings-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
         .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .setting-btn { padding: 8px; border: 1px solid #555; border-radius: 10px; cursor: pointer; background: rgba(0,0,0,0.5); transition: 0.2s; font-size: 13px; display: flex; align-items: center; justify-content: center; }
         .setting-btn.selected { background: #00d2d3; color: #000; border-color: #00d2d3; font-weight: bold; }
-
-        /* 說明視窗 (z-index: 10000) */
-        #modal-overlay { 
-            display: none; position: absolute; top: 0; left: 0; 
-            width: 100%; height: 100%; 
-            background: rgba(0, 0, 0, 0.85); 
-            z-index: 10000; 
-            pointer-events: auto; justify-content: center; align-items: center; 
-        }
+        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; pointer-events: auto; justify-content: center; align-items: center; }
         .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
         .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
         .modal-close { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
@@ -228,7 +149,6 @@
     ];
     let currentCharIndex = 0; 
 
-    // DOM Elements
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -245,8 +165,6 @@
     const loadingText = document.getElementById('loading-text');
     const charListContainer = document.getElementById('char-list-container');
     const btnSound = document.getElementById('btn-sound');
-
-    // Controls
     const controlsLayer = document.getElementById('controls-layer');
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
@@ -254,7 +172,6 @@
     const joyVisual = document.getElementById('joystick-visual');
     const joyStickHead = document.getElementById('joy-stick-head');
 
-    // Game Variables
     let GAME_WIDTH = 600, GAME_HEIGHT = 800, gameState = 'MENU', score = 0, frames = 0, gameSpeed = 2, countdownVal = 3, leaderboardData = [], isMouseDown = false, isMuted = true, audioCtx = null;
     let controlMode = 'btn-left'; 
     let joyData = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, touchId: null, isMouse: false };
@@ -263,7 +180,6 @@
     const keys = { left: false, right: false };
     let platforms = [];
 
-    // --- 操作模式設定 ---
     function setControlMode(mode) {
         controlMode = mode;
         const btns = document.querySelectorAll('.setting-btn');
@@ -280,12 +196,10 @@
             controlsLayer.classList.add('mode-' + mode);
         } else {
             controlsLayer.style.display = 'none';
-            // 搖桿模式下，只有遊戲中才開啟觸控區 (避免擋住選單)
             joyTouchZone.style.display = (gameState === 'PLAYING' || gameState === 'COUNTDOWN') ? 'block' : 'none';
         }
     }
 
-    // --- 搖桿邏輯 ---
     function startJoy(x, y, id, isMouse) {
         if (joyData.active) return;
         const halfWidth = window.innerWidth / 2;
@@ -313,8 +227,7 @@
     }
 
     function endJoy() {
-        joyData.active = false; joyData.touchId = null; joyVisual.style.display = 'none';
-        keys.left = false; keys.right = false;
+        joyData.active = false; joyData.touchId = null; joyVisual.style.display = 'none'; keys.left = false; keys.right = false;
     }
 
     joyTouchZone.addEventListener('touchstart', (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { startJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY, e.changedTouches[i].identifier, false); } });
@@ -325,7 +238,6 @@
     window.addEventListener('mousemove', (e) => { if (joyData.active && joyData.isMouse) moveJoy(e.clientX, e.clientY); });
     window.addEventListener('mouseup', () => { if (joyData.active && joyData.isMouse) endJoy(); });
 
-    // --- 固定按鍵邏輯 ---
     function handleBtnInput(e) {
         if (inputSection.style.display === 'block') return;
         let clientX;
@@ -344,22 +256,15 @@
     controlsLayer.addEventListener('mousemove', (e) => { if(isMouseDown) handleBtnInput(e); });
     window.addEventListener('mouseup', () => { isMouseDown = false; if(!joyData.active) { keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); }});
 
-    // --- 繪圖 ---
     function drawCharacter(ctx, p, overrideType = null) {
         if (!characters || characters.length === 0) return;
         const charType = overrideType || characters[currentCharIndex].id;
         const x = p.x, y = p.y, w = p.width, h = p.height;
         ctx.fillStyle = p.color;
-        
-        if (charType === 'slime') {
-            let tilt = -p.vx * 3; ctx.beginPath(); ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false); ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10); ctx.fill();
-        } else if (charType === 'cube') {
-            ctx.fillRect(x, y, w, h); ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-        } else if (charType === 'ghost') {
-            let wave = (!overrideType) ? Math.sin(frames * 0.2) * 2 : 0; ctx.beginPath(); ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); ctx.lineTo(x + w, y + h + wave); ctx.lineTo(x + w/2, y + h - wave); ctx.lineTo(x, y + h + wave); ctx.fill();
-        } else if (charType === 'bunny') {
-            let earTilt = p.vx * 2; ctx.beginPath(); ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2); ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2); ctx.fill();
-        }
+        if (charType === 'slime') { let tilt = -p.vx * 3; ctx.beginPath(); ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false); ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10); ctx.fill(); } 
+        else if (charType === 'cube') { ctx.fillRect(x, y, w, h); ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h); } 
+        else if (charType === 'ghost') { let wave = (!overrideType) ? Math.sin(frames * 0.2) * 2 : 0; ctx.beginPath(); ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); ctx.lineTo(x + w, y + h + wave); ctx.lineTo(x + w/2, y + h - wave); ctx.lineTo(x, y + h + wave); ctx.fill(); } 
+        else if (charType === 'bunny') { let earTilt = p.vx * 2; ctx.beginPath(); ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2); ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2); ctx.fill(); }
         let eyeOffset = p.vx * 2, eyeY = y + h - 15;
         if(charType === 'ghost') eyeY = y + 12; if(charType === 'bunny') eyeY = y + 15; if(charType === 'cube') eyeY = y + 10;
         ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + w/2 - 7 + eyeOffset, eyeY, 4, 0, Math.PI*2); ctx.arc(x + w/2 + 7 + eyeOffset, eyeY, 4, 0, Math.PI*2); ctx.fill();
@@ -388,7 +293,6 @@
         document.querySelectorAll('.char-option').forEach((opt, i) => { if(i === index) opt.classList.add('selected'); else opt.classList.remove('selected'); });
     }
 
-    // 音效
     function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
     function toggleSound() { isMuted = !isMuted; if (!isMuted) { btnSound.classList.remove('muted'); btnSound.innerText = "🔊"; initAudio(); } else { btnSound.classList.add('muted'); btnSound.innerText = "🔇"; } }
     function playTone(type) {
@@ -426,45 +330,27 @@
     }
 
     function startGameClick(e) {
-        // 防止誤觸
         if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn' || e.target.closest('.control-btn') || e.target.closest('.setting-btn') || e.target.closest('.char-option') || e.target.closest('.icon-btn')) return;
         if (inputSection.style.display === 'block') return;
-        
         try { if(!isMuted) initAudio(); } catch(err){}
-
         if (gameState === 'MENU' || gameState === 'GAMEOVER') startCountdown();
     }
-    // 綁定兩種事件確保反應
+    
     startScreen.addEventListener('click', startGameClick);
     startScreen.addEventListener('touchstart', (e) => { 
-        // 排除按鈕區域的觸控
-        if (!e.target.closest('.setting-btn') && !e.target.closest('.char-option')) {
-            startGameClick(e); 
-        }
+        if (!e.target.closest('.setting-btn') && !e.target.closest('.char-option')) startGameClick(e); 
     });
 
     function startCountdown() {
         gameState = 'COUNTDOWN'; startScreen.style.display = 'none'; countdownVal = 3; resetGameData(); playTone('count');
-        
-        // 確保搖桿觸控區被開啟
-        if (controlMode.startsWith('joy')) {
-            joyTouchZone.style.display = 'block';
-        }
-
+        if (controlMode.startsWith('joy')) joyTouchZone.style.display = 'block';
         let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; } }, 1000);
     }
 
     function resetGameData() {
         score = 0; frames = 0; gameSpeed = 2.2; player.hp = 100; player.x = GAME_WIDTH / 2 - player.width / 2; player.y = 100; player.vx = 0; player.vy = 0; player.invincibleTimer = 0; player.floorsSinceLastHeal = 0; 
-        
-        platforms = [];
-        // 安全開局：第一塊平台置中
-        let startY = 250;
-        let firstPlat = new Platform(startY, 'normal');
-        firstPlat.x = GAME_WIDTH / 2 - firstPlat.width / 2;
-        platforms.push(firstPlat);
+        platforms = []; let startY = 250; let firstPlat = new Platform(startY, 'normal'); firstPlat.x = GAME_WIDTH / 2 - firstPlat.width / 2; platforms.push(firstPlat);
         player.x = GAME_WIDTH / 2 - player.width / 2; player.y = startY - player.height;
-        
         for (let i = 1; i < 7; i++) platforms.push(new Platform(startY + i * 140, 'normal'));
         updateUI();
     }
@@ -517,17 +403,26 @@
         frames++; requestAnimationFrame(loop);
     }
 
-    // 事件
     window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') { keys.left = true; btnLeft.classList.add('active'); } if (e.code === 'ArrowRight') { keys.right = true; btnRight.classList.add('active'); } });
     window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') { keys.left = false; btnLeft.classList.remove('active'); } if (e.code === 'ArrowRight') { keys.right = false; btnRight.classList.remove('active'); } });
-    ['touchstart', 'touchend', 'touchmove', 'mousedown', 'mouseup'].forEach(evt => { nameInput.addEventListener(evt, (e) => { e.stopPropagation(); }); });
-
+    
+    // --- 3. 強制使用匿名模式讀取排行榜 ---
     function fetchLeaderboard() {
-        if (window.location.protocol === 'file:') { leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地模式限制</b><br>請使用 Live Server 或上傳至網站<br>才能讀取排行榜。</p>`; return; }
+        if (window.location.protocol === 'file:') { leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b><br>請上傳至網站<br>以讀取排行榜</p>`; return; }
         const fetchUrl = API_URL + "?t=" + new Date().getTime();
-        fetch(fetchUrl).then(response => { if (!response.ok) throw new Error("Err"); return response.text(); }).then(text => {
-            try { const data = JSON.parse(text); leaderboardData = data; renderLeaderboard(data); } catch (e) { console.error("JSON Err", text); leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取格式錯誤</p>`; }
-        }).catch(error => { console.error('Net Err', error); leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS)</p>`; });
+        
+        // 加入 credentials: 'omit' 以模擬無痕模式
+        fetch(fetchUrl, {
+            method: 'GET',
+            redirect: 'follow',
+            credentials: 'omit' 
+        })
+        .then(response => { if (!response.ok) throw new Error("Err"); return response.text(); })
+        .then(text => {
+            try { const data = JSON.parse(text); leaderboardData = data; renderLeaderboard(data); } 
+            catch (e) { console.error("JSON Err", text); leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取格式錯誤</p>`; }
+        })
+        .catch(error => { console.error('Net Err', error); leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS)</p>`; });
     }
 
     function renderLeaderboard(data) {
@@ -539,13 +434,12 @@
 
     function submitScore() {
         const name = nameInput.value.trim() || "無名氏"; submitBtn.disabled = true; submitBtn.style.backgroundColor = "#555"; loadingText.style.display = 'block';
-        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) }).then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); }).catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', credentials: 'omit', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) }).then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); }).catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
     }
 
     function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
     function checkHighscore(currentScore) { if (currentScore === 0) return false; if (leaderboardData.length === 0) return true; if (leaderboardData.length < 10) return true; return currentScore > leaderboardData[leaderboardData.length - 1].score; }
 
-    // 設定初始狀態
     setControlMode('btn-left');
     initCharSelect(); 
     fetchLeaderboard();
