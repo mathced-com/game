@@ -414,36 +414,30 @@
     ['touchstart', 'touchend', 'touchmove', 'mousedown', 'mouseup'].forEach(evt => { nameInput.addEventListener(evt, (e) => { e.stopPropagation(); }); });
 
     // --- 【修改重點】自動診斷並強制去快取的 fetchLeaderboard ---
-    function fetchLeaderboard() {
-        if (window.location.protocol === 'file:') { leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b></p>`; return; }
-        
-        // 保持乾淨的 URL 請求
-        const fetchUrl = API_URL + "?t=" + new Date().getTime();
-        
-        fetch(fetchUrl)
-        .then(response => response.text())
-        .then(text => {
-            try { 
-                const data = JSON.parse(text); 
-                leaderboardData = data; 
-                renderLeaderboard(data); 
-            } catch (e) { 
-                console.error("【伺服器回傳內容異常】:", text); 
-                let errorMsg = "讀取格式錯誤";
-                // 判斷常見錯誤
-                if (text.includes("<html") || text.includes("<!DOCTYPE html>")) {
-                    errorMsg = "權限異常(請將部署設為'任何人')";
-                } else if (text.includes("Sign in")) {
-                    errorMsg = "要求登入(請將部署設為'任何人')";
-                }
-                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>${errorMsg}</p><p style='font-size:10px; color:#888;'>(按 F12 檢視 Console 原因)</p>`; 
-            }
-        })
-        .catch(error => { 
-            console.error('Net Err', error); 
-            leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS / 網路問題)</p>`; 
-        });
+  // --- 修復後的排行榜讀取函式 ---
+function fetchLeaderboard() {
+    if (window.location.protocol === 'file:') { 
+        leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b></p>`; 
+        return; 
     }
+    
+    const fetchUrl = API_URL + "?t=" + new Date().getTime();
+    
+    fetch(fetchUrl, { method: 'GET', mode: 'cors', credentials: 'omit' })
+    .then(response => {
+        if (!response.ok) throw new Error("Server Error");
+        return response.json(); // 直接嘗試轉為 JSON
+    })
+    .then(data => {
+        // 如果成功解析，直接渲染
+        leaderboardData = data; 
+        renderLeaderboard(data); 
+    })
+    .catch(error => { 
+        console.error('Leaderboard Fetch Error:', error); 
+        leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取失敗，請檢查網路或 API 權限</p>`; 
+    });
+}
 
     function renderLeaderboard(data) {
         if (!data || data.length === 0) { leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>"; return; }
