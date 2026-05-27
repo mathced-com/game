@@ -3,31 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - V5.7 終極版</title>
+    <title>史萊姆下樓梯 - V5.8 終極完全體旗艦版</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100dvh; }
+        body { 
+            margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; 
+            height: 100dvh; 
+        }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
+        
+        /* UI 層 (z-index: 50) - 確保按鈕永遠在搖桿觸控區之上 */
         #ui-layer { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; height: 100%; pointer-events: none; z-index: 50; }
-        .hud-top { display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; }
+        .hud-top { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px;
+            color: white; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px black; 
+        }
         .hearts { color: #ff4757; font-size: 24px; letter-spacing: 2px; }
+        
         .hud-buttons { display: flex; gap: 10px; pointer-events: auto; }
-        .icon-btn { background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; width: 36px; height: 36px; line-height: 34px; text-align: center; cursor: pointer; font-size: 20px; transition: 0.2s; user-select: none; pointer-events: auto; }
+        .icon-btn { 
+            background: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; 
+            width: 36px; height: 36px; line-height: 34px; text-align: center; 
+            cursor: pointer; font-size: 20px; transition: 0.2s; user-select: none; pointer-events: auto;
+        }
         .icon-btn:hover { background: rgba(255, 255, 255, 0.4); }
         .icon-btn.muted { opacity: 0.6; text-decoration: line-through; color: #aaa; border-color: #aaa; }
-        #controls-layer { position: absolute; pointer-events: auto; display: none; align-items: center; z-index: 30; box-sizing: border-box; user-select: none; }
-        .control-btn { width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; margin: 0 10px; display: flex; justify-content: center; align-items: center; color: white; font-size: 40px; font-weight: bold; transition: all 0.1s; backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; }
+
+        /* --- 1. 固定按鍵層 (z-index: 30) --- */
+        #controls-layer {
+            position: absolute; pointer-events: auto; display: none; 
+            align-items: center; z-index: 30; box-sizing: border-box; user-select: none;
+        }
+        .control-btn { 
+            width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.25); border-radius: 20px; 
+            margin: 0 10px; display: flex; justify-content: center; align-items: center; 
+            color: white; font-size: 40px; font-weight: bold; transition: all 0.1s; 
+            backdrop-filter: blur(5px); border: 2px solid rgba(255,255,255,0.1); cursor: pointer; 
+        }
         .control-btn.active { background-color: rgba(255, 255, 255, 0.8); color: #000; transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 210, 211, 0.8); border-color: #00d2d3; }
-        @media (max-width: 820px) { #controls-layer { bottom: 30px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; padding: 0 20px; height: 100px; } #controls-layer.mode-btn-left { justify-content: flex-start; } #controls-layer.mode-btn-right { justify-content: flex-end; } }
-        @media (min-width: 821px) { #controls-layer { position: fixed; bottom: 40px; width: 250px; height: 120px; transform: none; } #controls-layer.mode-btn-left { left: 40px; justify-content: flex-start; } #controls-layer.mode-btn-right { right: 40px; justify-content: flex-end; } }
-        #joystick-touch-zone { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 25; pointer-events: auto; display: none; }
-        #joystick-visual { position: absolute; display: none; pointer-events: none; z-index: 999; }
-        .joy-base { width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.3); backdrop-filter: blur(2px); }
-        .joy-stick { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #00d2d3, #0abde3); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0,0,0,0.5); border: 2px solid white; }
-        #start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; background: rgba(0, 0, 0, 0.95); padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; cursor: pointer; pointer-events: auto; z-index: 9999; width: 85%; max-width: 380px; max-height: 95vh; display: flex; flex-direction: column; align-items: center; overflow-y: auto;}
+
+        @media (max-width: 820px) {
+            #controls-layer { bottom: 30px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; padding: 0 20px; height: 100px; }
+            #controls-layer.mode-btn-left { justify-content: flex-start; }
+            #controls-layer.mode-btn-right { justify-content: flex-end; }
+        }
+        @media (min-width: 821px) {
+            #controls-layer { position: fixed; bottom: 40px; width: 250px; height: 120px; transform: none; }
+            #controls-layer.mode-btn-left { left: 40px; justify-content: flex-start; }
+            #controls-layer.mode-btn-right { right: 40px; justify-content: flex-end; }
+        }
+
+        /* --- 2. 動態搖桿層 (z-index: 25) --- */
+        #joystick-touch-zone {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 25; pointer-events: auto; display: none; 
+        }
+        #joystick-visual {
+            position: absolute; display: none; pointer-events: none; z-index: 999;
+        }
+        .joy-base {
+            width: 120px; height: 120px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
+            position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.3); backdrop-filter: blur(2px);
+        }
+        .joy-stick {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: linear-gradient(135deg, #00d2d3, #0abde3);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); border: 2px solid white;
+        }
+
+        /* Start Screen (z-index: 9999 - 確保在最頂層) */
+        #start-screen { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            color: white; text-align: center; background: rgba(0, 0, 0, 0.95); 
+            padding: 20px 30px; border-radius: 15px; border: 2px solid #fff; 
+            cursor: pointer; pointer-events: auto; z-index: 9999; 
+            width: 85%; max-width: 380px; max-height: 95vh; 
+            display: flex; flex-direction: column; align-items: center; overflow-y: auto;
+        }
         #start-title { margin: 10px 0; font-size: 28px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.5); }
         #start-desc { margin: 10px 0; font-size: 18px; line-height: 1.5; pointer-events: none; }
         .blink { animation: blinker 1.5s linear infinite; color: yellow; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
+        
         #char-select-section { margin-bottom: 15px; width: 100%; }
         #char-select-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
         .char-list { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
@@ -36,29 +95,36 @@
         .char-name { font-size: 12px; color: #aaa; }
         .char-option.selected .char-icon-box { border-color: yellow; background: rgba(255,255,0,0.2); transform: scale(1.1); }
         .char-option.selected .char-name { color: yellow; font-weight: bold; }
+
         #leaderboard-section { margin-top: 10px; background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; overflow-y: auto; max-height: 150px; }
         .lb-header { font-size: 14px; color: #aaa; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .lb-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 2px; }
         .lb-rank { color: #f1c40f; width: 25px; text-align: left; }
         .lb-name { flex-grow: 1; text-align: left; padding-left: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-score { color: #2ecc71; text-align: right; min-width: 40px; }
+        
         #input-section { display: none; margin-bottom: 15px; width: 100%; }
         #player-name-input { padding: 10px; border-radius: 5px; border: none; width: 55%; text-align: center; font-size: 16px; outline: none; touch-action: manipulation !important; user-select: text !important; -webkit-user-select: text !important; z-index: 1000; position: relative; }
         #submit-btn { padding: 10px 15px; background: #00d2d3; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; font-size: 16px; margin-left: 5px; touch-action: manipulation;}
         #loading-text { display: none; color: #aaa; font-size: 12px; margin-top: 5px; }
         #pause-text { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        
         #settings-section { margin-bottom: 15px; width: 100%; }
         #settings-title { font-size: 14px; color: #ddd; margin-bottom: 8px; }
         .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .setting-btn { padding: 8px; border: 1px solid #555; border-radius: 10px; cursor: pointer; background: rgba(0,0,0,0.5); transition: 0.2s; font-size: 13px; display: flex; align-items: center; justify-content: center; }
         .setting-btn.selected { background: #00d2d3; color: #000; border-color: #00d2d3; font-weight: bold; }
+
         #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 10000; pointer-events: auto; justify-content: center; align-items: center; }
         .modal-content { background: #2f3640; color: white; padding: 25px; border-radius: 15px; max-width: 85%; width: 400px; border: 2px solid #00d2d3; text-align: left; position: relative; }
         .modal-content h2 { margin-top: 0; text-align: center; color: #00d2d3; }
         .modal-close { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
+        .legend-item { display: flex; align-items: center; margin: 10px 0; }
+        .legend-box { width: 30px; height: 15px; margin-right: 10px; border-radius: 2px; display: inline-block;}
     </style>
 </head>
 <body>
+
     <div id="ui-layer">
         <div class="hud-top">
             <div><span id="score">0</span> 樓</div>
@@ -72,27 +138,38 @@
         </div>
         <div id="pause-text">PAUSED</div>
     </div>
+
     <div id="controls-layer">
         <div id="btn-left" class="control-btn">←</div>
         <div id="btn-right" class="control-btn">→</div>
     </div>
+
     <div id="joystick-touch-zone"></div>
-    <div id="joystick-visual"><div class="joy-base"><div class="joy-stick" id="joy-stick-head"></div></div></div>
+    <div id="joystick-visual">
+        <div class="joy-base"><div class="joy-stick" id="joy-stick-head"></div></div>
+    </div>
+
     <div id="modal-overlay">
         <div class="modal-content">
             <span class="modal-close" onclick="toggleHelp(false)">&times;</span>
             <h2>遊戲說明</h2>
             <h3>🕹️ 操作方式</h3>
             <p><strong>電腦：</strong>鍵盤 ⬅️ ➡️ 或 滑鼠拖曳</p>
-            <p><strong>設定：</strong>可選擇 [按鍵] 或 [搖桿] 模式</p>
+            <p><strong>手機/平板：</strong>可自由切換 [按鍵] 或 [搖桿] 模式</p>
             <h3>❤️ 生存法則</h3>
             <p>每下 <strong>10 層樓</strong>，若受傷會自動回復一顆心。</p>
-            <p style="color: yellow; font-size: 14px;">點擊關閉視窗</p>
+            <div class="legend-item"><span class="legend-box" style="background:#2ed573;"></span><span><b>普通階梯</b>：安全。</span></div>
+            <div class="legend-item"><span class="legend-box" style="background: repeating-linear-gradient(45deg, #ff4757, #ff4757 5px, #d63031 5px, #d63031 10px);"></span><span><b>尖刺階梯</b>：扣血。</span></div>
+            <div class="legend-item"><span class="legend-box" style="background: repeating-linear-gradient(90deg, #1e90ff, #1e90ff 5px, #00d2d3 5px, #00d2d3 10px);"></span><span><b>傳送帶</b>：強制滑動。</span></div>
+            <p style="text-align: center; margin-top: 15px; color: yellow; font-size: 14px;">點擊關閉視窗</p>
         </div>
     </div>
+
     <canvas id="gameCanvas"></canvas>
+
     <div id="start-screen">
         <h2 id="start-title">下樓梯挑戰</h2>
+        
         <div id="settings-section">
             <div id="settings-title">操作模式</div>
             <div class="control-grid">
@@ -102,10 +179,12 @@
                 <div class="setting-btn" onclick="setControlMode('joy-right')">搖桿：右側</div>
             </div>
         </div>
+
         <div id="char-select-section">
             <div id="char-select-title">選擇角色</div>
             <div class="char-list" id="char-list-container"></div>
         </div>
+
         <div id="input-section">
             <p style="color: #f1c40f; font-size: 16px; margin: 5px 0;">🏆 恭喜進入前 10 名！</p>
             <div style="display: flex; justify-content: center; align-items: center;">
@@ -114,127 +193,350 @@
             </div>
             <p id="loading-text">上傳中...</p>
         </div>
-        <div id="start-desc-container"><p id="start-desc" class="blink">點擊畫面開始挑戰</p></div>
-        <div id="leaderboard-section"><div class="lb-header"><span>排行</span><span>暱稱</span><span>樓層</span></div><div id="leaderboard-list"><p style="font-size: 14px; color: #888;">載入中...</p></div></div>
+
+        <div id="start-desc-container">
+            <p id="start-desc" class="blink">點擊畫面開始挑戰</p>
+        </div>
+
+        <div id="leaderboard-section">
+            <div class="lb-header"><span>排行</span><span>暱稱</span><span>樓層</span></div>
+            <div id="leaderboard-list"></div>
+        </div>
     </div>
+
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec"; // 【請務必修改這裡】
-    const characters = [{id:'slime',name:'史萊姆',color:'#00d2d3'},{id:'cube',name:'方塊仔',color:'#ff9f43'},{id:'ghost',name:'幽靈',color:'#a29bfe'},{id:'bunny',name:'兔子',color:'#ff7675'}];
+    // ⚠️ 貼上您測試成功的後端 API 網址 (結尾必須是 /exec)
+    const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
+
+    const characters = [
+        { id: 'slime', name: '史萊姆', color: '#00d2d3' },
+        { id: 'cube', name: '方塊仔', color: '#ff9f43' },
+        { id: 'ghost', name: '幽靈', color: '#a29bfe' },
+        { id: 'bunny', name: '兔子', color: '#ff7675' }
+    ];
     let currentCharIndex = 0; 
-    const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
-    const scoreEl = document.getElementById('score'); const hpEl = document.getElementById('hp-display');
-    const startScreen = document.getElementById('start-screen'); const startTitle = document.getElementById('start-title');
-    const startDesc = document.getElementById('start-desc'); const inputSection = document.getElementById('input-section');
-    const modalOverlay = document.getElementById('modal-overlay'); const pauseText = document.getElementById('pause-text');
-    const leaderboardList = document.getElementById('leaderboard-list'); const nameInput = document.getElementById('player-name-input');
-    const submitBtn = document.getElementById('submit-btn'); const loadingText = document.getElementById('loading-text');
-    const charListContainer = document.getElementById('char-list-container'); const btnSound = document.getElementById('btn-sound');
-    const controlsLayer = document.getElementById('controls-layer'); const btnLeft = document.getElementById('btn-left');
-    const btnRight = document.getElementById('btn-right'); const joyTouchZone = document.getElementById('joystick-touch-zone');
-    const joyVisual = document.getElementById('joystick-visual'); const joyStickHead = document.getElementById('joy-stick-head');
 
+    // DOM 節點
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const hpEl = document.getElementById('hp-display');
+    const startScreen = document.getElementById('start-screen');
+    const startTitle = document.getElementById('start-title');
+    const startDesc = document.getElementById('start-desc');
+    const inputSection = document.getElementById('input-section');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const pauseText = document.getElementById('pause-text');
+    const leaderboardList = document.getElementById('leaderboard-list');
+    const nameInput = document.getElementById('player-name-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const loadingText = document.getElementById('loading-text');
+    const charListContainer = document.getElementById('char-list-container');
+    const btnSound = document.getElementById('btn-sound');
+    const controlsLayer = document.getElementById('controls-layer');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+    const joyTouchZone = document.getElementById('joystick-touch-zone');
+    const joyVisual = document.getElementById('joystick-visual');
+    const joyStickHead = document.getElementById('joy-stick-head');
+
+    // 遊戲運行狀態變數
     let GAME_WIDTH = 600, GAME_HEIGHT = 800, gameState = 'MENU', score = 0, frames = 0, gameSpeed = 2, countdownVal = 3, leaderboardData = [], isMouseDown = false, isMuted = true, audioCtx = null;
-    let controlMode = 'btn-left'; let joyData = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, touchId: null, isMouse: false };
-    const player = { x: 0, y: 100, width: 30, height: 30, color: '#00d2d3', vx: 0, vy: 0, speed: 0.8, friction: 0.9, gravity: 0.5, hp: 100, invincibleTimer: 0, floorsSinceLastHeal: 0 };
-    const keys = { left: false, right: false }; let platforms = [];
+    let controlMode = 'btn-left'; 
+    let joyData = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, touchId: null, isMouse: false };
 
+    const player = { x: 0, y: 100, width: 30, height: 30, color: '#00d2d3', vx: 0, vy: 0, speed: 0.8, friction: 0.9, gravity: 0.5, hp: 100, invincibleTimer: 0, floorsSinceLastHeal: 0 };
+    const keys = { left: false, right: false };
+    let platforms = [];
+
+    // --- 1. 操作模式管理器 ---
     function setControlMode(mode) {
         controlMode = mode;
         const btns = document.querySelectorAll('.setting-btn');
         btns.forEach(b => b.classList.remove('selected'));
         if(mode === 'btn-left') btns[0].classList.add('selected');
-        else if(mode === 'btn-right') btns[1].classList.add('selected');
-        else if(mode === 'joy-left') btns[2].classList.add('selected');
-        else if(mode === 'joy-right') btns[3].classList.add('selected');
+        if(mode === 'btn-right') btns[1].classList.add('selected');
+        if(mode === 'joy-left') btns[2].classList.add('selected');
+        if(mode === 'joy-right') btns[3].classList.add('selected');
 
-        if (mode.startsWith('btn')) { controlsLayer.style.display = 'flex'; joyTouchZone.style.display = 'none'; controlsLayer.classList.remove('mode-btn-left', 'mode-btn-right'); controlsLayer.classList.add('mode-' + mode); } 
-        else { controlsLayer.style.display = 'none'; joyTouchZone.style.display = (gameState === 'PLAYING' || gameState === 'COUNTDOWN') ? 'block' : 'none'; }
+        if (mode.startsWith('btn')) {
+            controlsLayer.style.display = 'flex';
+            joyTouchZone.style.display = 'none';
+            controlsLayer.className = 'mode-' + mode;
+        } else {
+            controlsLayer.style.display = 'none';
+            joyTouchZone.style.display = (gameState === 'PLAYING' || gameState === 'COUNTDOWN') ? 'block' : 'none';
+        }
     }
 
+    // --- 2. MOBA 動態手遊搖桿運算核心 ---
     function startJoy(x, y, id, isMouse) {
         if (joyData.active) return;
         const halfWidth = window.innerWidth / 2;
         let isValid = (controlMode === 'joy-left' && x < halfWidth) || (controlMode === 'joy-right' && x > halfWidth);
+
         if (isValid) {
-            joyData.active = true; joyData.touchId = id; joyData.isMouse = isMouse; joyData.startX = x; joyData.startY = y; joyData.currentX = x; joyData.currentY = y;
-            joyVisual.style.display = 'block'; joyVisual.style.left = (x - 60) + 'px'; joyVisual.style.top = (y - 60) + 'px'; joyStickHead.style.transform = `translate(-50%, -50%)`;
+            joyData.active = true; joyData.touchId = id; joyData.isMouse = isMouse;
+            joyData.startX = x; joyData.startY = y; joyData.currentX = x; joyData.currentY = y;
+            joyVisual.style.display = 'block'; joyVisual.style.left = (x - 60) + 'px'; joyVisual.style.top = (y - 60) + 'px';
+            joyStickHead.style.transform = `translate(-50%, -50%)`;
         }
     }
+
     function moveJoy(x, y) {
         joyData.currentX = x; joyData.currentY = y;
         const dx = joyData.currentX - joyData.startX; const dy = joyData.currentY - joyData.startY;
         const distance = Math.min(Math.sqrt(dx*dx + dy*dy), 35); const angle = Math.atan2(dy, dx);
-        joyStickHead.style.transform = `translate(calc(-50% + ${Math.cos(angle)*distance}px), calc(-50% + ${Math.sin(angle)*distance}px))`;
-        keys.left = (dx < -10); keys.right = (dx > 10);
+        const stickX = Math.cos(angle) * distance; const stickY = Math.sin(angle) * distance;
+        joyStickHead.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+        
+        if (dx < -10) { keys.left = true; keys.right = false; }
+        else if (dx > 10) { keys.left = false; keys.right = true; }
+        else { keys.left = false; keys.right = false; }
     }
-    function endJoy() { joyData.active = false; joyData.touchId = null; joyVisual.style.display = 'none'; keys.left = false; keys.right = false; }
 
-    joyTouchZone.addEventListener('touchstart', (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) startJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY, e.changedTouches[i].identifier, false); });
-    joyTouchZone.addEventListener('touchmove', (e) => { e.preventDefault(); if (joyData.active && !joyData.isMouse) { for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === joyData.touchId) moveJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY); } } });
-    const tEnd = (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === joyData.touchId) endJoy(); } };
-    joyTouchZone.addEventListener('touchend', tEnd); joyTouchZone.addEventListener('touchcancel', tEnd);
+    function endJoy() {
+        joyData.active = false; joyData.touchId = null; joyVisual.style.display = 'none';
+        keys.left = false; keys.right = false;
+    }
+
+    joyTouchZone.addEventListener('touchstart', (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { startJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY, e.changedTouches[i].identifier, false); } });
+    joyTouchZone.addEventListener('touchmove', (e) => { e.preventDefault(); if (!joyData.active || joyData.isMouse) return; for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === joyData.touchId) moveJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY); } });
+    const touchEndHandler = (e) => { e.preventDefault(); for (let i = 0; i < e.changedTouches.length; i++) { if (e.changedTouches[i].identifier === joyData.touchId) endJoy(); } };
+    joyTouchZone.addEventListener('touchend', touchEndHandler); joyTouchZone.addEventListener('touchcancel', touchEndHandler);
     joyTouchZone.addEventListener('mousedown', (e) => { startJoy(e.clientX, e.clientY, 999, true); });
     window.addEventListener('mousemove', (e) => { if (joyData.active && joyData.isMouse) moveJoy(e.clientX, e.clientY); });
     window.addEventListener('mouseup', () => { if (joyData.active && joyData.isMouse) endJoy(); });
 
+    // --- 3. 實體按鍵與滑鼠流暢拖曳控制核心 ---
     function handleBtnInput(e) {
         if (inputSection.style.display === 'block') return;
         let clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
-        const leftRect = btnLeft.getBoundingClientRect(), rightRect = btnRight.getBoundingClientRect();
+        const leftRect = btnLeft.getBoundingClientRect(); const rightRect = btnRight.getBoundingClientRect();
         let hitLeft = false, hitRight = false;
-        if (e.touches && e.touches.length > 0) { for(let i=0; i<e.touches.length; i++) { if(e.touches[i].clientX >= leftRect.left && e.touches[i].clientX <= leftRect.right) hitLeft=true; if(e.touches[i].clientX >= rightRect.left && e.touches[i].clientX <= rightRect.right) hitRight=true; } }
-        else { if (clientX >= leftRect.left && clientX <= leftRect.right) hitLeft=true; if (clientX >= rightRect.left && clientX <= rightRect.right) hitRight=true; }
+
+        if (e.touches && e.touches.length > 0) {
+             for (let i = 0; i < e.touches.length; i++) {
+                 const tx = e.touches[i].clientX; const ty = e.touches[i].clientY;
+                 if (tx >= leftRect.left && tx <= leftRect.right && ty >= leftRect.top && ty <= leftRect.bottom) hitLeft = true;
+                 if (tx >= rightRect.left && tx <= rightRect.right && ty >= rightRect.top && ty <= rightRect.bottom) hitRight = true;
+             }
+        } else {
+             const ty = e.clientY;
+             if (clientX >= leftRect.left && clientX <= leftRect.right && ty >= leftRect.top && ty <= leftRect.bottom) hitLeft = true;
+             if (clientX >= rightRect.left && clientX <= rightRect.right && ty >= rightRect.top && ty <= rightRect.bottom) hitRight = true;
+        }
         keys.left = hitLeft; keys.right = hitRight;
         btnLeft.classList.toggle('active', hitLeft); btnRight.classList.toggle('active', hitRight);
     }
     controlsLayer.addEventListener('touchstart', (e) => { e.preventDefault(); handleBtnInput(e); });
     controlsLayer.addEventListener('touchmove', (e) => { e.preventDefault(); handleBtnInput(e); });
-    controlsLayer.addEventListener('touchend', (e) => { e.preventDefault(); keys.left=false; keys.right=false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); });
-    controlsLayer.addEventListener('mousedown', (e) => { isMouseDown=true; handleBtnInput(e); });
+    controlsLayer.addEventListener('touchend', (e) => { e.preventDefault(); if (e.touches.length > 0) handleBtnInput(e); else { keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); } });
+    controlsLayer.addEventListener('mousedown', (e) => { isMouseDown = true; handleBtnInput(e); });
     controlsLayer.addEventListener('mousemove', (e) => { if(isMouseDown) handleBtnInput(e); });
-    window.addEventListener('mouseup', () => { isMouseDown=false; if(!joyData.active) { keys.left=false; keys.right=false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); } });
+    window.addEventListener('mouseup', () => { isMouseDown = false; if(!joyData.active) { keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); }});
 
+    // --- 4. 角色圖形學渲染模組 (Canvas 向量繪製) ---
     function drawCharacter(ctx, p, overrideType = null) {
-        if (!characters.length) return;
+        if (!characters || characters.length === 0) return;
         const charType = overrideType || characters[currentCharIndex].id;
+        const x = p.x, y = p.y, w = p.width, h = p.height;
         ctx.fillStyle = p.color;
-        if (charType === 'slime') { ctx.beginPath(); ctx.arc(p.x+p.width/2, p.y+p.height-10, p.width/2, 0, Math.PI, false); ctx.bezierCurveTo(p.x, p.y+p.height-10, p.x+p.width/2-p.vx*3, p.y, p.x+p.width, p.y+p.height-10); ctx.fill(); }
-        else if (charType === 'cube') { ctx.fillRect(p.x, p.y, p.width, p.height); ctx.strokeRect(p.x, p.y, p.width, p.height); }
-        else if (charType === 'ghost') { let wave = !overrideType ? Math.sin(frames*0.2)*2 : 0; ctx.beginPath(); ctx.arc(p.x+p.width/2, p.y+p.width/2, p.width/2, Math.PI, 0); ctx.lineTo(p.x+p.width, p.y+p.height+wave); ctx.lineTo(p.x+p.width/2, p.y+p.height-wave); ctx.lineTo(p.x, p.y+p.height+wave); ctx.fill(); }
-        else if (charType === 'bunny') { ctx.beginPath(); ctx.ellipse(p.x+8+p.vx*2, p.y+5, 5, 12, -0.2, 0, Math.PI*2); ctx.ellipse(p.x+22+p.vx*2, p.y+5, 5, 12, 0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(p.x+p.width/2, p.y+p.height/2+5, p.width/2, 0, Math.PI*2); ctx.fill(); }
-        ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(p.x+p.width/2-7+p.vx*2, p.y+15, 4, 0, Math.PI*2); ctx.arc(p.x+p.width/2+7+p.vx*2, p.y+15, 4, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle='black'; ctx.beginPath(); ctx.arc(p.x+p.width/2-7+p.vx*2+(p.vx>0?1:-1), p.y+15, 1.5, 0, Math.PI*2); ctx.arc(p.x+p.width/2+7+p.vx*2+(p.vx>0?1:-1), p.y+15, 1.5, 0, Math.PI*2); ctx.fill();
+        
+        if (charType === 'slime') {
+            let tilt = -p.vx * 3; ctx.beginPath(); ctx.arc(x + w/2, y + h - 10, w/2, 0, Math.PI, false); ctx.bezierCurveTo(x, y + h - 10, x + w/2 + tilt, y, x + w, y + h - 10); ctx.fill();
+        } else if (charType === 'cube') {
+            ctx.fillRect(x, y, w, h); ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+        } else if (charType === 'ghost') {
+            let wave = (!overrideType) ? Math.sin(frames * 0.2) * 2 : 0; ctx.beginPath(); ctx.arc(x + w/2, y + w/2, w/2, Math.PI, 0); ctx.lineTo(x + w, y + h + wave); ctx.lineTo(x + w/2, y + h - wave); ctx.lineTo(x, y + h + wave); ctx.fill();
+        } else if (charType === 'bunny') {
+            let earTilt = p.vx * 2; ctx.beginPath(); ctx.ellipse(x+8+earTilt, y+5, 5, 12, -0.2, 0, Math.PI*2); ctx.ellipse(x+22+earTilt, y+5, 5, 12, 0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+w/2, y+h/2+5, w/2, 0, Math.PI*2); ctx.fill();
+        }
+        // 動態五官渲染
+        let eyeOffset = p.vx * 2, eyeY = y + h - 15;
+        if(charType === 'ghost') eyeY = y + 12; if(charType === 'bunny') eyeY = y + 15; if(charType === 'cube') eyeY = y + 10;
+        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + w/2 - 7 + eyeOffset, eyeY, 4, 0, Math.PI*2); ctx.arc(x + w/2 + 7 + eyeOffset, eyeY, 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'black'; ctx.beginPath();
+        let pupilX = (p.vx > 0) ? 1 : (p.vx < 0 ? -1 : 0);
+        ctx.arc(x + w/2 - 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2); ctx.arc(x + w/2 + 7 + eyeOffset + pupilX, eyeY, 1.5, 0, Math.PI*2); ctx.fill();
+        if(p.invincibleTimer > 0) { ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 8, 3, 0, Math.PI*2); ctx.fill(); } else { ctx.beginPath(); ctx.arc(x + w/2 + eyeOffset, eyeY + 6, 3, 0, Math.PI); ctx.stroke(); }
     }
 
     function initCharSelect() {
+        if (!charListContainer) return;
         charListContainer.innerHTML = '';
         characters.forEach((char, index) => {
             const containerDiv = document.createElement('div'); containerDiv.className = `char-option ${index === 0 ? 'selected' : ''}`; containerDiv.onclick = (e) => { e.stopPropagation(); selectCharacter(index); };
-            const iconBox = document.createElement('div'); iconBox.className = 'char-icon-box';
-            const cvs = document.createElement('canvas'); cvs.width = 30; cvs.height = 30; const c = cvs.getContext('2d');
-            drawCharacter(c, {x:0, y:0, width:30, height:30, color:char.color, vx:0}, char.id);
-            iconBox.appendChild(cvs); containerDiv.appendChild(iconBox);
-            const nameLabel = document.createElement('div'); nameLabel.className = 'char-name'; nameLabel.innerText = char.name; containerDiv.appendChild(nameLabel);
+            containerDiv.innerHTML = `<div class="char-icon-box"><canvas width="30" height="30" id="cvs${index}"></canvas></div><div class="char-name">${char.name}</div>`;
             charListContainer.appendChild(containerDiv);
+            const c = document.getElementById(`cvs${index}`).getContext('2d');
+            drawCharacter(c, { x:0, y:0, width:30, height:30, color: char.color, vx:0, invincibleTimer:0 }, char.id);
         });
     }
 
-    function selectCharacter(index) { currentCharIndex = index; player.color = characters[index].color; document.querySelectorAll('.char-option').forEach((opt, i) => { opt.classList.toggle('selected', i === index); }); }
-    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
-    function toggleSound() { isMuted = !isMuted; if (!isMuted) { btnSound.classList.remove('muted'); btnSound.innerText = "🔊"; initAudio(); } else { btnSound.classList.add('muted'); btnSound.innerText = "🔇"; } }
-    function playTone(type) { if (isMuted || !audioCtx) return; try { const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime; if(type==='count'){osc.frequency.value=600; gain.gain.setValueAtTime(0.1,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.1); osc.start(); osc.stop(now+0.1);} } catch(e){} }
-    function escapeHtml(text) { return String(text || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
-    function renderLeaderboard(data) { if (!data || data.length === 0) { leaderboardList.innerHTML = "<p>尚無紀錄</p>"; return; } leaderboardList.innerHTML = data.slice(0,10).map((item,i) => `<div class="lb-row"><span class="lb-rank">${i+1}.</span><span class="lb-name">${escapeHtml(item.name)}</span><span class="lb-score">${item.score}F</span></div>`).join(''); }
-    function fetchLeaderboard() { fetch(API_URL + "?t=" + new Date().getTime(), {credentials:'omit'}).then(r=>r.json()).then(d=>{leaderboardData=d; renderLeaderboard(d);}).catch(()=>{leaderboardList.innerHTML="<p style='color:red;'>讀取失敗</p>";}); }
-    function submitScore() { const name = nameInput.value.trim() || "無名氏"; submitBtn.disabled=true; fetch(API_URL, {method:'POST', mode:'no-cors', body:JSON.stringify({name, score})}).then(()=> { loadingText.style.display='none'; inputSection.style.display='none'; startDesc.style.display='block'; fetchLeaderboard(); }); }
-    function checkHighscore(s) { return s>0 && (leaderboardData.length<10 || s > leaderboardData[leaderboardData.length-1].score); }
-    
-    function startCountdown() { gameState = 'COUNTDOWN'; startScreen.style.display = 'none'; countdownVal = 3; resetGameData(); playTone('count'); if (controlMode.startsWith('joy')) joyTouchZone.style.display = 'block'; let t = setInterval(() => { countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(t); gameState = 'PLAYING'; } }, 1000); }
-    function resetGameData() { score=0; frames=0; gameSpeed=2.2; player.hp=100; player.vx=0; player.vy=0; platforms=[]; let sY=250; let p=new Platform(sY,'normal'); p.x=GAME_WIDTH/2-p.width/2; platforms.push(p); player.x=p.x+p.width/2-player.width/2; player.y=sY-player.height; for(let i=1;i<7;i++) platforms.push(new Platform(sY+i*140,'normal')); updateUI(); }
-    function gameOver() { gameState='GAMEOVER'; endJoy(); joyTouchZone.style.display='none'; startScreen.style.display='flex'; if(checkHighscore(score)){ inputSection.style.display='block'; } fetchLeaderboard(); }
-    function loop() { if (gameState === 'PLAYING') { /* 遊戲物理邏輯 */ } requestAnimationFrame(loop); } // 此處為簡化結構，實際邏輯請參考前一版
+    function selectCharacter(index) {
+        currentCharIndex = index; player.color = characters[index].color;
+        document.querySelectorAll('.char-option').forEach((opt, i) => { opt.classList.toggle('selected', i === index); });
+    }
 
-    setControlMode('btn-left'); initCharSelect(); fetchLeaderboard(); loop();
+    // --- 5. 即時網頁音效合成系統 (Web Audio API) ---
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+    function toggleSound() { isMuted = !isMuted; btnSound.classList.toggle('muted', isMuted); btnSound.innerText = isMuted ? "🔇" : "🔊"; if (!isMuted) initAudio(); }
+    function playTone(type) {
+        if (isMuted || !audioCtx) return;
+        try {
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(), now = audioCtx.currentTime;
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'count') { osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
+            else if (type === 'jump') { osc.type = 'sine'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
+            else if (type === 'damage') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(100, now + 0.3); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+            else if (type === 'heal') { osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1); gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+            else if (type === 'gameover') { osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(50, now + 1); gain.gain.setValueAtTime(0.5, now); gain.gain.linearRampToValueAtTime(0.01, now + 1); osc.start(now); osc.stop(now + 1); }
+        } catch(e) { console.warn("Audio Error", e); }
+    }
+
+    // --- 6. 地形學物理引擎 (碰撞/移動模組) ---
+    function drawSpikes(ctx,x,y,w,h){ctx.fillStyle='#ff4757';ctx.beginPath();const c=Math.floor(w/10),s=w/c;ctx.moveTo(x,y+h);for(let i=0;i<=c;i++){ctx.lineTo(x+i*s-s/2,y);ctx.lineTo(x+i*s,y+h)}ctx.fill()}
+    function drawConveyor(ctx,x,y,w,h,d){ctx.fillStyle='#1e90ff';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=3;let f=(d==='left')?-1:1,o=(frames*1.5*f)%20;ctx.beginPath();for(let i=-20;i<w+20;i+=15){let dx=x+i+o;if(dx>x&&dx<x+w){ctx.moveTo(dx,y);ctx.lineTo(dx+(d==='left'?-5:5),y+h)}}ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h)}
+
+    class Platform {
+        constructor(y, type = 'normal') { this.width = 100 + Math.random() * 40; this.height = 16; this.x = Math.random() * (GAME_WIDTH - this.width); this.y = y; this.type = type; this.hasDealtDamage = false; }
+        draw() {
+            if (this.type === 'normal') { ctx.fillStyle = '#2ed573'; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(this.x, this.y + 12, this.width, 4); } 
+            else if (this.type === 'spike') drawSpikes(ctx, this.x, this.y, this.width, this.height);
+            else if (this.type.includes('conveyor')) drawConveyor(ctx, this.x, this.y, this.width, this.height, this.type === 'conveyor_left' ? 'left' : 'right');
+        }
+        update() { this.y -= gameSpeed; }
+    }
+
+    // --- 7. 排行榜雲端核心 (徹底修復強轉型防崩潰機制) ---
+    function escapeHtml(text) { 
+        const str = String(text ?? ""); 
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); 
+    }
+    
+    function renderLeaderboard(data) {
+        if (!Array.isArray(data) || data.length === 0) { leaderboardList.innerHTML = "<p style='font-size:14px; color:#aaa'>尚無紀錄</p>"; return; }
+        leaderboardList.innerHTML = data.slice(0, 10).map((item, index) => {
+            let rankColor = "#fff"; if(index === 0) rankColor = "#f1c40f"; if(index === 1) rankColor = "#bdc3c7"; if(index === 2) rankColor = "#e67e22";
+            const name = item.name ?? "無名氏"; const scoreVal = item.score ?? 0;
+            return `<div class="lb-row"><span class="lb-rank" style="color:${rankColor}">${index + 1}.</span><span class="lb-name">${escapeHtml(name)}</span><span class="lb-score">${escapeHtml(scoreVal)}F</span></div>`;
+        }).join('');
+    }
+
+    function fetchLeaderboard() {
+        if (window.location.protocol === 'file:') { leaderboardList.innerHTML = `<p style='font-size:12px; color:#ff9f43;'>⚠️ 請使用本地伺服器(Live Server)</p>`; return; }
+        fetch(API_URL + "?t=" + Date.now(), { method: 'GET', mode: 'cors' })
+        .then(response => { if (!response.ok) throw new Error(); return response.json(); })
+        .then(renderLeaderboard)
+        .catch(() => { leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取失敗，請確認 API 網址</p>`; });
+    }
+
+    function submitScore() {
+        const name = nameInput.value.trim() || "無名氏"; submitBtn.disabled = true; submitBtn.style.backgroundColor = "#555"; loadingText.style.display = 'block';
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) })
+        .then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); })
+        .catch(() => { submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
+    }
+
+    // --- 8. 系統運行核心 (Loop & 狀態控制) ---
+    function resize() { const isMobile = window.innerWidth < 600; GAME_WIDTH = isMobile ? window.innerWidth : 600; GAME_HEIGHT = window.innerHeight; canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT; }
+    window.addEventListener('resize', resize); resize();
+
+    function toggleHelp(show) {
+        if (show) { modalOverlay.style.display = 'flex'; if (gameState === 'PLAYING' || gameState === 'COUNTDOWN') { previousState = gameState; gameState = 'PAUSED'; pauseText.style.display = 'block'; } }
+        else { modalOverlay.style.display = 'none'; if (gameState === 'PAUSED') { gameState = previousState; pauseText.style.display = 'none'; } }
+    }
+
+    function startGameClick(e) {
+        if (e.target.id === 'player-name-input' || e.target.id === 'submit-btn' || e.target.closest('.control-btn') || e.target.closest('.setting-btn') || e.target.closest('.char-option') || e.target.closest('.icon-btn')) return;
+        if (inputSection.style.display === 'block') return;
+        if (!isMuted) initAudio();
+        if (gameState === 'MENU' || gameState === 'GAMEOVER') startCountdown();
+    }
+    startScreen.addEventListener('click', startGameClick);
+    startScreen.addEventListener('touchstart', (e) => { if (!e.target.closest('.setting-btn') && !e.target.closest('.char-option')) startGameClick(e); });
+
+    function startCountdown() {
+        gameState = 'COUNTDOWN'; startScreen.style.display = 'none'; countdownVal = 3; resetGameData(); playTone('count');
+        if (controlMode.startsWith('joy')) joyTouchZone.style.display = 'block';
+        let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; } }, 1000);
+    }
+
+    function resetGameData() {
+        score = 0; frames = 0; gameSpeed = 2.2; player.hp = 100; player.x = GAME_WIDTH / 2 - player.width / 2; player.y = 100; player.vx = 0; player.vy = 0; player.invincibleTimer = 0; player.floorsSinceLastHeal = 0; 
+        platforms = [];
+        // [安全開局] 第一塊地磚置中定位
+        let startY = 250; let firstPlat = new Platform(startY, 'normal'); firstPlat.x = GAME_WIDTH / 2 - firstPlat.width / 2; platforms.push(firstPlat);
+        player.x = GAME_WIDTH / 2 - player.width / 2; player.y = startY - player.height;
+        for (let i = 1; i < 7; i++) platforms.push(new Platform(startY + i * 140, 'normal'));
+        updateUI();
+    }
+
+    function gameOver() {
+        playTone('gameover'); gameState = 'GAMEOVER'; isMouseDown = false; keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active');
+        endJoy(); joyTouchZone.style.display = 'none';
+        startTitle.innerText = "遊戲結束"; startDesc.innerHTML = `最終成績: ${score} 樓<br><span class="blink">點擊畫面重試</span>`; startDesc.style.display = 'block';
+        if (score > 0 && (leaderboardData.length < 10 || score > leaderboardData[leaderboardData.length - 1].score)) { inputSection.style.display = 'block'; startDesc.style.display = 'none'; nameInput.value = ""; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; } else { inputSection.style.display = 'none'; }
+        fetchLeaderboard(); startScreen.style.display = 'flex';
+    }
+
+    function updateUI() { scoreEl.innerText = score; let hearts = ''; if (player.hp > 66) hearts = '❤️❤️❤️'; else if (player.hp > 33) hearts = '❤️❤️🖤'; else if (player.hp > 0) hearts = '❤️🖤🖤'; else hearts = '🖤🖤🖤'; hpEl.innerText = hearts; }
+
+    function loop() {
+        if (gameState === 'PAUSED') { requestAnimationFrame(loop); return; }
+        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        if (gameState === 'COUNTDOWN') {
+            platforms.forEach(p => p.draw()); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT); ctx.fillStyle = '#00d2d3'; ctx.font = 'bold 100px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(countdownVal, GAME_WIDTH/2, GAME_HEIGHT/2); requestAnimationFrame(loop); return;
+        }
+        if (gameState !== 'PLAYING') { if(platforms.length > 0) platforms.forEach(p => p.draw()); requestAnimationFrame(loop); return; }
+
+        // 慣性與物理位移計算
+        if (keys.left) player.vx -= player.speed; if (keys.right) player.vx += player.speed;
+        player.vx *= player.friction; player.x += player.vx; player.vy += player.gravity; player.y += player.vy; if (player.invincibleTimer > 0) player.invincibleTimer--;
+
+        // 生成新階梯與自動回血判斷
+        if (frames % 60 === 0) { 
+            let type = 'normal', rand = Math.random();
+            if (score > 30) { if (rand < 0.3) type = 'spike'; else if (rand < 0.5) type = (Math.random()>0.5) ? 'conveyor_left' : 'conveyor_right'; } 
+            else if (score > 10) { if (rand < 0.2) type = (Math.random()>0.5) ? 'conveyor_left' : 'conveyor_right'; }
+            platforms.push(new Platform(GAME_HEIGHT, type)); score++; player.floorsSinceLastHeal++;
+            if (player.floorsSinceLastHeal >= 10) { if (player.hp < 100) { player.hp += 34; if(player.hp > 100) player.hp = 100; playTone('heal'); } player.floorsSinceLastHeal = 0; }
+            updateUI(); if (score % 25 === 0) gameSpeed += 0.2;
+        }
+
+        let onPlatform = false;
+        platforms.forEach((p, index) => {
+            p.update(); p.draw();
+            // 精準 AABB 矩形碰撞檢測
+            if (player.vy > 0 && player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 15) {
+                if (player.vy > 2) playTone('jump'); player.vy = 0; player.y = p.y - player.height; onPlatform = true;
+                if (p.type === 'spike') { if (!p.hasDealtDamage && player.invincibleTimer === 0) { player.hp -= 34; p.hasDealtDamage = true; player.invincibleTimer = 40; player.vy = -6; updateUI(); playTone('damage'); if (player.hp <= 0) gameOver(); } } 
+                else if (p.type === 'conveyor_left') player.x -= 3.5; else if (p.type === 'conveyor_right') player.x += 3.5;
+            }
+            if (p.y < -50) platforms.splice(index, 1);
+        });
+
+        // 左右邊界碰撞限制
+        if (player.x < 0) { player.x = 0; if (player.vx < 0) player.vx = 0; } else if (player.x + player.width > GAME_WIDTH) { player.x = GAME_WIDTH - player.width; if (player.vx > 0) player.vx = 0; }
+        if (onPlatform && player.vy === 0) player.y -= gameSpeed;
+        if (player.y < 0 || player.y > GAME_HEIGHT) { player.hp = 0; updateUI(); gameOver(); }
+        
+        try { if (Math.floor(player.invincibleTimer / 4) % 2 === 0) drawCharacter(ctx, player); } catch(e) { console.error(e); }
+        frames++; requestAnimationFrame(loop);
+    }
+
+    // 鍵盤同步事件
+    window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') { keys.left = true; btnLeft.classList.add('active'); } if (e.code === 'ArrowRight') { keys.right = true; btnRight.classList.add('active'); } });
+    window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') { keys.left = false; btnLeft.classList.remove('active'); } if (e.code === 'ArrowRight') { keys.right = false; btnRight.classList.remove('active'); } });
+
+    // 啟動程序
+    setControlMode('btn-left');
+    initCharSelect(); 
+    fetchLeaderboard();
+    gameState = 'MENU';
+    loop(); 
 </script>
 </body>
 </html>
