@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>史萊姆下樓梯 - V5.5 終極突破版</title>
+    <title>史萊姆下樓梯 - V5.6 穩定版</title>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; justify-content: center; align-items: center; height: 100dvh; }
         canvas { display: block; background-color: #000; max-width: 600px; width: 100%; height: 100%; box-shadow: 0 0 30px rgba(0,0,0,0.6); border-left: 1px solid #333; border-right: 1px solid #333; }
@@ -139,6 +139,7 @@
     </div>
 
 <script>
+    // ⚠️ 請確保此處為最新的部署網址 (結尾為 /exec)
     const API_URL = "https://script.google.com/macros/s/AKfycbw3s6dKhgRFPcw4FB2nB2GEz1hiBb4Z6MkxBltSqIvZKLILWJiFoRMkXMQVSMzzjtFcbg/exec";
 
     const characters = [
@@ -149,6 +150,7 @@
     ];
     let currentCharIndex = 0; 
 
+    // DOM Elements
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -165,6 +167,8 @@
     const loadingText = document.getElementById('loading-text');
     const charListContainer = document.getElementById('char-list-container');
     const btnSound = document.getElementById('btn-sound');
+
+    // Controls
     const controlsLayer = document.getElementById('controls-layer');
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
@@ -172,6 +176,7 @@
     const joyVisual = document.getElementById('joystick-visual');
     const joyStickHead = document.getElementById('joy-stick-head');
 
+    // Game Variables
     let GAME_WIDTH = 600, GAME_HEIGHT = 800, gameState = 'MENU', score = 0, frames = 0, gameSpeed = 2, countdownVal = 3, leaderboardData = [], isMouseDown = false, isMuted = true, audioCtx = null;
     let controlMode = 'btn-left'; 
     let joyData = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, touchId: null, isMouse: false };
@@ -180,6 +185,7 @@
     const keys = { left: false, right: false };
     let platforms = [];
 
+    // --- 操作模式設定 ---
     function setControlMode(mode) {
         controlMode = mode;
         const btns = document.querySelectorAll('.setting-btn');
@@ -200,6 +206,7 @@
         }
     }
 
+    // --- 搖桿邏輯 ---
     function startJoy(x, y, id, isMouse) {
         if (joyData.active) return;
         const halfWidth = window.innerWidth / 2;
@@ -238,6 +245,7 @@
     window.addEventListener('mousemove', (e) => { if (joyData.active && joyData.isMouse) moveJoy(e.clientX, e.clientY); });
     window.addEventListener('mouseup', () => { if (joyData.active && joyData.isMouse) endJoy(); });
 
+    // --- 固定按鍵邏輯 ---
     function handleBtnInput(e) {
         if (inputSection.style.display === 'block') return;
         let clientX;
@@ -256,6 +264,7 @@
     controlsLayer.addEventListener('mousemove', (e) => { if(isMouseDown) handleBtnInput(e); });
     window.addEventListener('mouseup', () => { isMouseDown = false; if(!joyData.active) { keys.left = false; keys.right = false; btnLeft.classList.remove('active'); btnRight.classList.remove('active'); }});
 
+    // --- 繪圖 ---
     function drawCharacter(ctx, p, overrideType = null) {
         if (!characters || characters.length === 0) return;
         const charType = overrideType || characters[currentCharIndex].id;
@@ -335,15 +344,12 @@
         try { if(!isMuted) initAudio(); } catch(err){}
         if (gameState === 'MENU' || gameState === 'GAMEOVER') startCountdown();
     }
-    
     startScreen.addEventListener('click', startGameClick);
-    startScreen.addEventListener('touchstart', (e) => { 
-        if (!e.target.closest('.setting-btn') && !e.target.closest('.char-option')) startGameClick(e); 
-    });
+    startScreen.addEventListener('touchstart', (e) => { if (!e.target.closest('.setting-btn') && !e.target.closest('.char-option')) { startGameClick(e); } });
 
     function startCountdown() {
         gameState = 'COUNTDOWN'; startScreen.style.display = 'none'; countdownVal = 3; resetGameData(); playTone('count');
-        if (controlMode.startsWith('joy')) joyTouchZone.style.display = 'block';
+        if (controlMode.startsWith('joy')) { joyTouchZone.style.display = 'block'; }
         let timer = setInterval(() => { if (gameState === 'PAUSED') return; countdownVal--; if (countdownVal > 0) playTone('count'); if (countdownVal <= 0) { clearInterval(timer); gameState = 'PLAYING'; } }, 1000);
     }
 
@@ -405,24 +411,38 @@
 
     window.addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft') { keys.left = true; btnLeft.classList.add('active'); } if (e.code === 'ArrowRight') { keys.right = true; btnRight.classList.add('active'); } });
     window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') { keys.left = false; btnLeft.classList.remove('active'); } if (e.code === 'ArrowRight') { keys.right = false; btnRight.classList.remove('active'); } });
-    
-    // --- 3. 強制使用匿名模式讀取排行榜 ---
+    ['touchstart', 'touchend', 'touchmove', 'mousedown', 'mouseup'].forEach(evt => { nameInput.addEventListener(evt, (e) => { e.stopPropagation(); }); });
+
+    // --- 【修改重點】自動診斷並強制去快取的 fetchLeaderboard ---
     function fetchLeaderboard() {
-        if (window.location.protocol === 'file:') { leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b><br>請上傳至網站<br>以讀取排行榜</p>`; return; }
+        if (window.location.protocol === 'file:') { leaderboardList.innerHTML = `<p style='font-size:13px; color:#ff9f43; text-align:left;'>⚠️ <b>本地限制</b></p>`; return; }
+        
+        // 保持乾淨的 URL 請求
         const fetchUrl = API_URL + "?t=" + new Date().getTime();
         
-        // 加入 credentials: 'omit' 以模擬無痕模式
-        fetch(fetchUrl, {
-            method: 'GET',
-            redirect: 'follow',
-            credentials: 'omit' 
-        })
-        .then(response => { if (!response.ok) throw new Error("Err"); return response.text(); })
+        fetch(fetchUrl)
+        .then(response => response.text())
         .then(text => {
-            try { const data = JSON.parse(text); leaderboardData = data; renderLeaderboard(data); } 
-            catch (e) { console.error("JSON Err", text); leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>讀取格式錯誤</p>`; }
+            try { 
+                const data = JSON.parse(text); 
+                leaderboardData = data; 
+                renderLeaderboard(data); 
+            } catch (e) { 
+                console.error("【伺服器回傳內容異常】:", text); 
+                let errorMsg = "讀取格式錯誤";
+                // 判斷常見錯誤
+                if (text.includes("<html") || text.includes("<!DOCTYPE html>")) {
+                    errorMsg = "權限異常(請將部署設為'任何人')";
+                } else if (text.includes("Sign in")) {
+                    errorMsg = "要求登入(請將部署設為'任何人')";
+                }
+                leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>${errorMsg}</p><p style='font-size:10px; color:#888;'>(按 F12 檢視 Console 原因)</p>`; 
+            }
         })
-        .catch(error => { console.error('Net Err', error); leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS)</p>`; });
+        .catch(error => { 
+            console.error('Net Err', error); 
+            leaderboardList.innerHTML = `<p style='font-size:12px; color:red;'>連線失敗 (CORS / 網路問題)</p>`; 
+        });
     }
 
     function renderLeaderboard(data) {
@@ -434,7 +454,9 @@
 
     function submitScore() {
         const name = nameInput.value.trim() || "無名氏"; submitBtn.disabled = true; submitBtn.style.backgroundColor = "#555"; loadingText.style.display = 'block';
-        fetch(API_URL, { method: 'POST', mode: 'no-cors', credentials: 'omit', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) }).then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); }).catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ name: name, score: score }) })
+        .then(() => { setTimeout(() => { loadingText.style.display = 'none'; inputSection.style.display = 'none'; startDesc.style.display = 'block'; startDesc.innerHTML = "上傳成功！<br>點擊畫面重試"; fetchLeaderboard(); }, 1200); })
+        .catch(err => { console.error(err); loadingText.innerText = "上傳失敗"; submitBtn.disabled = false; submitBtn.style.backgroundColor = "#00d2d3"; });
     }
 
     function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
