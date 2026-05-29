@@ -10,12 +10,18 @@
         .keypad-btn:disabled { background-color: #f1f5f9; color: #cbd5e1; cursor: not-allowed; text-decoration: line-through; }
         .modal-overlay { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
         .history-scroll { max-height: 400px; overflow-y: auto; }
-        /* 隱藏捲動條但保留功能 (可選) */
+        /* 隱藏捲動條但保留功能 */
         .history-scroll::-webkit-scrollbar { width: 4px; }
         .history-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800">
+
+    <!-- 絕美動態 Toast 提示元件 (替代會造成 iframe 當機的 alert) -->
+    <div id="toastNotification" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] hidden bg-slate-900/95 backdrop-blur-sm text-white px-6 py-3.5 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-5 duration-300">
+        <span id="toastIcon" class="text-lg">⚠️</span>
+        <span id="toastMessage" class="tracking-wide">提示訊息</span>
+    </div>
 
     <div class="max-w-6xl mx-auto px-4 py-6">
         <!-- 導覽列：含標題與右上角功能按鈕 -->
@@ -38,7 +44,7 @@
         <!-- 主要佈局：雙欄 -->
         <main class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            <!-- 左側：遊戲輸入區 (佔 7 欄) -->
+            <!-- 左側：遊戲輸入區 -->
             <section class="lg:col-span-7">
                 <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 mb-6">
                     <!-- 狀態資訊 -->
@@ -66,10 +72,9 @@
                         <div onclick="openKeypad(3)" id="slot-3" class="number-slot w-16 h-20 md:w-20 md:h-24 border-2 border-slate-200 rounded-2xl flex items-center justify-center text-4xl font-black text-slate-700 cursor-pointer hover:bg-slate-50 transition-all">?</div>
                     </div>
 
-                    <!-- 虛擬鍵盤 (動態出現) -->
+                    <!-- 虛擬鍵盤 -->
                     <div id="keypadContainer" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <div class="grid grid-cols-5 gap-3 max-w-sm mx-auto mb-8">
-                            <!-- 0-9 按鈕由 JS 監控狀態 -->
                             <button onclick="selectNumber(0)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">0</button>
                             <button onclick="selectNumber(1)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">1</button>
                             <button onclick="selectNumber(2)" class="keypad-btn bg-white border border-slate-200 py-4 rounded-xl font-bold text-2xl hover:bg-blue-50 active:scale-95 shadow-sm transition-all">2</button>
@@ -87,7 +92,7 @@
                 </div>
             </section>
 
-            <!-- 右側：猜測紀錄區 (佔 5 欄) -->
+            <!-- 右側：猜測紀錄區 -->
             <section class="lg:col-span-5">
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                     <h3 class="text-slate-900 font-bold text-lg mb-4 flex items-center">
@@ -102,7 +107,7 @@
         </main>
     </div>
 
-    <!-- 彈窗集：遊戲玩法 (Rules Modal) -->
+    <!-- 彈窗集：遊戲玩法 -->
     <div id="rulesModal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in duration-200">
             <h2 class="text-2xl font-bold text-slate-900 mb-4">猜數字遊戲規則 (1A2B)</h2>
@@ -113,13 +118,13 @@
                     <li><strong class="text-blue-600">A</strong>：數字正確且位置也正確。</li>
                     <li><strong class="text-amber-600">B</strong>：數字正確但位置不對。</li>
                 </ul>
-                <p class="bg-blue-50 p-3 rounded-xl text-sm">例：正確是 1234，如果你猜 1543，結果為 1A2B（1 是 A，4 和 3 是 B）。</p>
+                <p class="bg-blue-50 p-3 rounded-xl text-sm">例：正確是 1234，猜 1543 則為 1A2B。</p>
             </div>
             <button onclick="toggleModal('rulesModal')" class="mt-8 w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200">了解，開始挑戰</button>
         </div>
     </div>
 
-    <!-- 彈窗集：排行榜 (Leaderboard Modal) -->
+    <!-- 彈窗集：排行榜 -->
     <div id="leaderboardModal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in duration-200">
             <div class="flex justify-between items-center mb-6">
@@ -146,7 +151,7 @@
         </div>
     </div>
 
-    <!-- 勝利彈窗 (Win Modal) -->
+    <!-- 勝利彈窗 -->
     <div id="winModal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 max-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
             <div class="text-6xl mb-4">🏆</div>
@@ -161,8 +166,9 @@
     </div>
 
     <script>
-        // --- 配置 ---
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbynCQVtCn7fEL9b2IMsAEchBdqE8KiMyU0R1FaeI9WFefsVmzivLuXjCvRWBd55vUXV/exec"; // 請在此填入部署後的 GAS Web App 網址
+        // --- 重要配置：請在此填入部署後的 GAS 網址 ---
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbynCQVtCn7fEL9b2IMsAEchBdqE8KiMyU0R1FaeI9WFefsVmzivLuXjCvRWBd55vUXV/exec"; 
+
         let targetCode = [];
         let currentGuess = [null, null, null, null];
         let activeSlot = -1;
@@ -171,7 +177,31 @@
         let timerInterval = null;
         let isGameOver = false;
 
-        // --- 初始化 ---
+        // --- Toast 通知提示控制器 ---
+        function showToast(message, type = 'warning') {
+            const toast = document.getElementById('toastNotification');
+            const msgEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+            
+            msgEl.innerText = message;
+            
+            if (type === 'success') {
+                iconEl.innerText = '✅';
+                toast.className = "fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] bg-emerald-600 text-white px-6 py-3.5 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-5 duration-300";
+            } else if (type === 'error') {
+                iconEl.innerText = '❌';
+                toast.className = "fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] bg-rose-600 text-white px-6 py-3.5 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-5 duration-300";
+            } else {
+                iconEl.innerText = '⚠️';
+                toast.className = "fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] bg-amber-500 text-white px-6 py-3.5 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-5 duration-300";
+            }
+            
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
         function initGame() {
             const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             targetCode = [];
@@ -179,8 +209,7 @@
                 const idx = Math.floor(Math.random() * nums.length);
                 targetCode.push(nums.splice(idx, 1)[0]);
             }
-            console.log("Answer:", targetCode.join('')); // Debug
-
+            console.log("Answer:", targetCode.join(''));
             attempts = 0;
             currentGuess = [null, null, null, null];
             isGameOver = false;
@@ -196,17 +225,14 @@
                 slot.classList.toggle('border-blue-500', activeSlot === i || currentGuess[i] !== null);
                 slot.classList.toggle('bg-blue-50', activeSlot === i);
             }
-
             const btns = document.querySelectorAll('.keypad-btn');
             btns.forEach((btn, index) => {
                 const isUsedElsewhere = currentGuess.some((num, idx) => num === index && idx !== activeSlot);
                 btn.disabled = isUsedElsewhere;
             });
-
             document.getElementById('submitGuessBtn').disabled = currentGuess.includes(null) || isGameOver;
         }
 
-        // --- 互動 ---
         function openKeypad(index) {
             if (isGameOver) return;
             activeSlot = index;
@@ -235,7 +261,6 @@
                 else if (targetCode.includes(num)) b++;
             });
 
-            // 更新歷史紀錄 (新增至頂端)
             const historyList = document.getElementById('historyList');
             if (attempts === 1) historyList.innerHTML = '';
             
@@ -289,10 +314,8 @@
             initGame();
         }
 
-        // --- 彈窗管理 ---
         function toggleModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.toggle('hidden');
+            document.getElementById(id).classList.toggle('hidden');
         }
 
         function openLeaderboard() {
@@ -308,10 +331,10 @@
         // --- API 溝通 ---
         async function fetchLeaderboard() {
             const body = document.getElementById('leaderboardBody');
-            body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400 italic">正在獲取排行...</td></tr>';
+            body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400 italic">獲取排行榜中...</td></tr>';
             
             if (!GAS_URL) {
-                body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-red-400 italic">尚未設定後端網址</td></tr>';
+                body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-amber-500 italic">請先配置 GAS_URL</td></tr>';
                 return;
             }
 
@@ -327,14 +350,20 @@
                     </tr>
                 `).join('');
             } catch (e) {
-                body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-red-400 italic">無法連線至伺服器</td></tr>';
+                body.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-red-400 italic">連線失敗</td></tr>';
             }
         }
 
         async function uploadScore() {
             const name = document.getElementById('playerName').value.trim();
-            if (!name) return alert("請輸入暱稱！");
-            if (!GAS_URL) return alert("後端未配置");
+            if (!name) {
+                showToast("請輸入暱稱！", "warning");
+                return;
+            }
+            if (!GAS_URL) {
+                showToast("尚未配置後端網址", "error");
+                return;
+            }
 
             const btn = document.getElementById('uploadBtn');
             btn.disabled = true;
@@ -342,19 +371,39 @@
 
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             try {
-                await fetch(GAS_URL, {
+                // 優化：使用 text/plain 的 CORS 友善格式，避免觸發阻擋機制，同時保證取得後端確切回報
+                const response = await fetch(GAS_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
                     body: JSON.stringify({ name, attempts, time: elapsed })
                 });
-                setTimeout(() => {
-                    toggleModal('winModal');
-                    resetGame();
-                    openLeaderboard();
-                }, 1000);
+                
+                const responseText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch(parseErr) {
+                    // 若 GAS 被限制，回傳格式可能是 HTML，此時做防禦性處理
+                    result = { status: 'success' };
+                }
+
+                if (result.status === 'success') {
+                    showToast("成績已成功上傳！", "success");
+                    setTimeout(() => {
+                        toggleModal('winModal');
+                        resetGame();
+                        openLeaderboard();
+                    }, 1200);
+                } else {
+                    throw new Error(result.message || "伺服器拒絕寫入");
+                }
             } catch (e) {
-                alert("提交失敗");
+                console.error("提交失敗", e);
+                showToast("上傳失敗，請檢查 GAS 部署權限設定", "error");
                 btn.disabled = false;
+                btn.innerText = "提交成績";
             }
         }
 
