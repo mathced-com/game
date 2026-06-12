@@ -150,12 +150,12 @@
             <div class="text-xs text-gray-300 mb-6 max-w-sm text-left mx-auto space-y-4 w-full">
                 <!-- Character Stats -->
                 <div class="bg-gray-800 p-3 rounded border border-gray-600">
-                    <h3 class="text-green-400 font-bold mb-2 border-b border-gray-600 pb-1">角色詳細數值 (STATS)</h3>
+                    <h3 class="text-green-400 font-bold mb-2 border-b border-gray-600 pb-1">角色特性與計分方式</h3>
                     <div class="space-y-3">
-                        <div><p class="text-gray-400 leading-tight"><span class="text-green-400 font-bold">史萊姆</span>: 平衡型，貼牆緩降。</p></div>
-                        <div><p class="text-gray-400 leading-tight"><span class="text-gray-400 font-bold">石像鬼</span>: 重裝型，落地即停，易碎地板碎得快。<br><strong class="text-pink-400">(踩彈簧只彈一次)</strong></p></div>
-                        <div><p class="text-gray-400 leading-tight"><span class="text-blue-400 font-bold">忍者蛙</span>: 速度型，可二段跳。</p></div>
-                        <div><p class="text-gray-400 leading-tight"><span class="text-purple-400 font-bold">幽靈</span>: 飄浮型，滑行遠。</p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-green-400 font-bold">史萊姆</span>: 平衡型，貼牆緩降與牆跳。<br><span class="text-yellow-400 font-bold">計分：1.0x 倍率</span></p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-gray-400 font-bold">石像鬼 (難)</span>: 重裝型，落地即停，踩彈簧受限。<br><strong class="text-red-400">重墜(vy>8)可砸平尖刺高跳！(不消失)</strong><br><strong class="text-cyan-400">踏冰板可重壓破冰！</strong><br><span class="text-yellow-400 font-bold">計分：1.5x 倍率 (高風險回報)</span></p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-blue-400 font-bold">忍者蛙</span>: 速度型，可二段跳，碰撞箱小。<br><span class="text-yellow-400 font-bold">計分：0.8x 倍率 (優勢制衡)</span></p></div>
+                        <div><p class="text-gray-400 leading-tight"><span class="text-purple-400 font-bold">幽靈</span>: 飄浮型，滑行遠。<br><strong class="text-pink-400">按住「↓/S」可快速下墜防相機吞噬</strong><br><span class="text-yellow-400 font-bold">計分：1.0x 倍率</span></p></div>
                     </div>
                 </div>
                 <!-- Platform Legend -->
@@ -335,7 +335,7 @@
         { name: "搖桿：反轉 (右移/左跳)", type: 'joy', layout: 'flip' }
     ];
 
-    const keys = { right: false, left: false, space: false, spaceHeld: false };
+    const keys = { right: false, left: false, space: false, spaceHeld: false, down: false };
     let player;
     let platforms = [];
     
@@ -350,10 +350,10 @@
 
     // PHYSICS
     const CHARACTERS = {
-        slime: { name: "史萊姆", color: "#4ade80", w: 24, h: 24, speed: 6, jumpForce: 13.5, gravity: 0.6, friction: 0.85, type: "slime" },
-        gargoyle: { name: "石像鬼", color: "#9ca3af", w: 28, h: 28, speed: 6, jumpForce: 16.5, gravity: 0.9, friction: 0.85, type: "gargoyle" },
-        ninja: { name: "忍者蛙", color: "#3b82f6", w: 20, h: 20, speed: 6, jumpForce: 13, gravity: 0.7, friction: 0.85, type: "ninja" },
-        boo: { name: "幽靈", color: "#e9d5ff", w: 22, h: 22, speed: 6, jumpForce: 10.5, gravity: 0.35, friction: 0.95, type: "boo" } 
+        slime: { name: "史萊姆", color: "#4ade80", w: 24, h: 24, speed: 6, jumpForce: 13.5, gravity: 0.6, friction: 0.85, type: "slime", scoreMultiplier: 1.0 },
+        gargoyle: { name: "石像鬼", color: "#9ca3af", w: 28, h: 28, speed: 6, jumpForce: 16.5, gravity: 0.8, friction: 0.85, type: "gargoyle", scoreMultiplier: 1.5 },
+        ninja: { name: "忍者蛙", color: "#3b82f6", w: 20, h: 20, speed: 6, jumpForce: 13, gravity: 0.7, friction: 0.85, type: "ninja", scoreMultiplier: 0.8 },
+        boo: { name: "幽靈", color: "#e9d5ff", w: 22, h: 22, speed: 6, jumpForce: 10.5, gravity: 0.35, friction: 0.95, type: "boo", scoreMultiplier: 1.0 } 
     };
 
     class Player {
@@ -424,7 +424,10 @@
             if (this.x + this.w > canvas.width) this.x = canvas.width - this.w;
 
             let g = this.stats.gravity;
-            if (this.type === 'boo' && keys.spaceHeld && this.vy > 0) g = 0.1; 
+            if (this.type === 'boo') {
+                if (keys.down) g = 1.5; 
+                else if (keys.spaceHeld && this.vy > 0) g = 0.1; 
+            }
             
             this.wallSliding = false;
             if (this.type === 'slime' && !this.onGround && this.vy > 0) {
@@ -441,8 +444,20 @@
             this.onGround = false;
             platforms.forEach(p => {
                 if (p.type === 'breakable' && p.broken) return;
+                if (p.type === 'spike' && p.broken) return; 
 
                 if (this.vy >= 0 && this.y + this.h <= p.y + p.h + this.vy && this.y + this.h >= p.y && this.x + this.w > p.x && this.x < p.x + p.w) {
+                    if (this.type === 'gargoyle') {
+                        if (p.type === 'spike' && this.vy > 8) {
+                            p.type = 'normal'; 
+                            this.vy = -16;
+                            this.onGround = false;
+                            return;
+                        }
+                        if (p.type === 'ice') {
+                            p.type = 'normal'; 
+                        }
+                    }
                     this.y = p.y - this.h;
                     this.vy = 0;
                     this.onGround = true;
@@ -456,7 +471,7 @@
                     else if (p.type === 'spring') {
                         if (this.type === 'gargoyle') {
                             if (!p.hasSprung) {
-                                this.vy = -15; 
+                                this.vy = -19; 
                                 this.onGround = false;
                                 p.hasSprung = true; 
                             }
@@ -753,8 +768,9 @@
         if (player.y < cameraY + 200) cameraY = player.y - 200;
         else cameraY -= cameraSpeed;
 
-        let currentHeight = Math.floor(-player.y + (canvas.height - 100)); 
-        if(currentHeight < 0) currentHeight = 0; 
+        let baseHeight = -player.y + (canvas.height - 100);
+        if (baseHeight < 0) baseHeight = 0;
+        let currentHeight = Math.floor(baseHeight * player.stats.scoreMultiplier);
         if (currentHeight > score) score = currentHeight;
         document.getElementById('scoreDisplay').innerText = score;
 
@@ -923,11 +939,13 @@
     window.addEventListener('keydown', e => {
         if (e.code === 'ArrowRight') { keys.right = true; setButtonState('btnRight', true); }
         if (e.code === 'ArrowLeft') { keys.left = true; setButtonState('btnLeft', true); }
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') { keys.down = true; }
         if (e.code === 'Space') { keys.spaceHeld = true; setButtonState('btnJump', true); if (!keys.space && gameState === 'PLAYING') { player.jump(); keys.space = true; } }
     });
     window.addEventListener('keyup', e => {
         if (e.code === 'ArrowRight') { keys.right = false; setButtonState('btnRight', false); }
         if (e.code === 'ArrowLeft') { keys.left = false; setButtonState('btnLeft', false); }
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') { keys.down = false; }
         if (e.code === 'Space') { keys.space = false; keys.spaceHeld = false; setButtonState('btnJump', false); }
     });
 
